@@ -10,6 +10,7 @@ import * as textures from './textures'
 import { setLang, detectLang, type Lang } from '../shared/i18n'
 import * as localfs from './localfs'
 import * as modrinth from './modrinth'
+import { decryptLegacy } from './legacyKey'
 import { tr } from '../shared/i18n'
 
 migrateFromNexus()
@@ -236,6 +237,9 @@ function registerIpc() {
 }
 
 app.whenReady().then(() => {
+  // пароли, сохранённые под старым именем (Nexus), — расшифровать и перешифровать новым ключом
+  const fixed = profiles.repairSecrets(decryptLegacy)
+  if (fixed.recovered || fixed.dropped) console.log('[secrets]', fixed)
   setLang(settings.getLang() ?? detectLang(app.getLocale()))
   Menu.setApplicationMenu(null)
   textures.handleTextureProtocol()

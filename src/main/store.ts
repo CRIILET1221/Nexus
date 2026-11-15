@@ -35,6 +35,7 @@ function load(): StoreData {
         profiles: raw.profiles ?? [],
         servers: raw.servers ?? [],
         javaPath: raw.javaPath,
+        lang: raw.lang,
         knownHosts: raw.knownHosts ?? {}
       }
       return cache
@@ -60,7 +61,13 @@ function encrypt(text: string): string {
 }
 
 function decrypt(value: string): string {
-  if (value.startsWith('enc:')) return safeStorage.decryptString(Buffer.from(value.slice(4), 'base64'))
+  if (value.startsWith('enc:')) {
+    try {
+      return safeStorage.decryptString(Buffer.from(value.slice(4), 'base64'))
+    } catch {
+      return '' // ключ шифрования сменился — пароль спросим заново
+    }
+  }
   if (value.startsWith('b64:')) return Buffer.from(value.slice(4), 'base64').toString('utf8')
   return ''
 }
@@ -80,11 +87,44 @@ export const profiles = {
   },
   secret(id: string): string | undefined {
     const p = this.get(id)
-    return p?.secret ? decrypt(p.secret) : undefined
+    return p?.secret ? decrypt(p.secret) || undefined : undefined
   },
   panelKey(id: string): string | undefined {
     const p = this.get(id)
-    return p?.panelKey ? decrypt(p.panelKey) : undefined
+    return p?.panelKey ? decrypt(p.panelKey) || undefined : undefined
+  },
+  /**
+   * Проверяет, что все сохранённые пароли и ключи расшифровываются.
+   * Нерасшифровываемые пробует открыть старым ключом (legacy) и перешифровывает новым,
+   * а если не вышло — удаляет, чтобы интерфейс спросил их заново вместо ошибки.
+   */
+  repairSecrets(legacy: (blob: Buffer) => string | null) {
+    if (!safeStorage.isEncryptionAvailable()) return { recovered: 0, dropped: 0 }
+    let recovered = 0
+    let dropped = 0
+    for (const p of load().profiles) {
+      for (const field of ['secret', 'panelKey'] as const) {
+        const v = p[field]
+        if (!v?.startsWith('enc:')) continue
+        const blob = Buffer.from(v.slice(4), 'base64')
+        try {
+          safeStorage.decryptString(blob)
+          continue // всё в порядке
+        } catch {
+          /* ключ не подходит */
+        }
+        const plain = legacy(blob)
+        if (plain !== null) {
+          p[field] = encrypt(plain)
+          recovered++
+        } else {
+          delete p[field]
+          dropped++
+        }
+      }
+    }
+    if (recovered || dropped) save()
+    return { recovered, dropped }
   },
   save(input: ProfileInput): ConnectionProfile {
     const data = load()
