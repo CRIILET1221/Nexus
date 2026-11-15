@@ -52,7 +52,7 @@ export function Connections(props: {
             <Server size={28} />
           </div>
           <h3>{tr('Пока нет ни одного сервера')}</h3>
-          <div>{tr('Проще всего — по API-ключу панели хостинга: Nexus сам найдёт ваши серверы и настроит файлы, консоль и всё остальное.')}</div>
+          <div>{tr('Проще всего — по API-ключу панели хостинга: NexAtom сам найдёт ваши серверы и настроит файлы, консоль и всё остальное.')}</div>
           <div className="row" style={{ justifyContent: 'center' }}>
             <button className="btn primary" onClick={() => setImporting(true)}>
               <Zap size={16} />{' '}{tr('Добавить с хостинга')}
@@ -363,7 +363,7 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
             <div className="callout">
               <Info size={16} />
               <span>
-                {tr('Подходит для хостингов на панели')}{' '}<b>Pterodactyl</b>{' '}{tr('или')}{' '}<b>Pelican</b>{tr('. Nexus получит список ваших серверов и сам подставит адрес, порт и логин SFTP.')}
+                {tr('Подходит для хостингов на панели')}{' '}<b>Pterodactyl</b>{' '}{tr('или')}{' '}<b>Pelican</b>{tr('. NexAtom получит список ваших серверов и сам подставит адрес, порт и логин SFTP.')}
               </span>
             </div>
             <div className="field">

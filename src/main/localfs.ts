@@ -164,7 +164,7 @@ export async function compress(serverId: string, vdir: string, names: string[]) 
 export async function pull(serverId: string, vdir: string, url: string, fileName?: string) {
   if (!/^https:\/\//i.test(url)) throw new Error(tr('Нужна https-ссылка'))
   const dir = abs(serverId, vdir)
-  const res = await fetch(url, { headers: { 'User-Agent': 'Nexus-ServerPanel/0.3 (desktop app)' } })
+  const res = await fetch(url, { headers: { 'User-Agent': 'NexAtom/0.6 (desktop app)' } })
   if (!res.ok || !res.body) throw new Error(tr('Не удалось скачать (HTTP {0})', res.status))
   const cd = res.headers.get('content-disposition') ?? ''
   const fromHeader = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd)?.[1]

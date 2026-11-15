@@ -354,7 +354,7 @@ export function LocalBackups(props: { serverId: string; running: boolean; visibl
         </div>
         {props.running && (
           <div className="callout" style={{ marginBottom: 14 }}>
-            {tr('Сервер запущен: перед архивацией Nexus выполнит save-all и временно отключит автосохранение, чтобы мир не повредился.')}
+            {tr('Сервер запущен: перед архивацией NexAtom выполнит save-all и временно отключит автосохранение, чтобы мир не повредился.')}
           </div>
         )}
         <div className="rows">

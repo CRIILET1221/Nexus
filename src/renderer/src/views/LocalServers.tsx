@@ -122,7 +122,7 @@ export function LocalServers(props: { visible: boolean }) {
           </div>
           <h3>{tr('Свой сервер Minecraft за минуту')}</h3>
           <div style={{ maxWidth: 420 }}>
-            {tr('Выберите ядро и версию — Nexus скачает сервер, настроит его и запустит. Играть можно с этого ПК или с друзьями по локальной сети.')}
+            {tr('Выберите ядро и версию — NexAtom скачает сервер, настроит его и запустит. Играть можно с этого ПК или с друзьями по локальной сети.')}
           </div>
           <button className="btn primary" onClick={() => setCreating(true)}>
             <Plus size={16} />{' '}{tr('Создать сервер')}

@@ -22,4 +22,4 @@ const api = {
 
 contextBridge.exposeInMainWorld('nexus', api)
 
-export type NexusBridge = typeof api
+export type NexAtomBridge = typeof api

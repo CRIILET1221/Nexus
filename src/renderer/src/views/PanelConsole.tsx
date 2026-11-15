@@ -69,10 +69,10 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
           if (m.id !== idRef.current) return
           setLinkState(m.state)
           setLinkError(m.error ?? null)
-          if (m.state === 'connected') write(tr('\x1b[90m[Nexus] Подключено к консоли сервера\x1b[0m\n'))
+          if (m.state === 'connected') write(tr('\x1b[90m[NexAtom] Подключено к консоли сервера\x1b[0m\n'))
         })
       ]
-      write(tr('\x1b[90m[Nexus] Подключение к панели {0}…\x1b[0m\n', props.profile.panelUrl))
+      write(tr('\x1b[90m[NexAtom] Подключение к панели {0}…\x1b[0m\n', props.profile.panelUrl))
       let disposed = false
       api.panel.open(props.profile.id).then(
         (id) => {
@@ -82,7 +82,7 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
           for (const m of buffer) if (m.id === id) write(m.data)
         },
         (e: Error) => {
-          write(`\x1b[31m[Nexus] ${e.message}\x1b[0m\n`)
+          write(`\x1b[31m[NexAtom] ${e.message}\x1b[0m\n`)
           setLinkState('closed')
           setLinkError(e.message)
         }

@@ -18,7 +18,7 @@ import { servers, settings } from './store'
 import { emit } from './events'
 import { tr } from '../shared/i18n'
 
-const UA = 'Nexus-ServerPanel/0.1 (desktop app)'
+const UA = 'NexAtom/0.6 (desktop app)'
 
 export async function getJson<T = any>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' } })
@@ -217,12 +217,12 @@ export async function setJavaPath(path: string | undefined): Promise<JavaInfo> {
 // ---------- Создание сервера ----------
 
 export function defaultServersDir() {
-  return join(app.getPath('documents'), 'Nexus Servers')
+  return join(app.getPath('documents'), 'NexAtom Servers')
 }
 
 function serverProperties(i: CreateServerInput) {
   return [
-    tr('# Создано в Nexus'),
+    tr('# Создано в NexAtom'),
     `motd=${i.motd.replace(/\n/g, '\\n')}`,
     `server-port=${i.port}`,
     `max-players=${i.maxPlayers}`,
@@ -268,7 +268,7 @@ export async function createServer(input: CreateServerInput, progressId: string)
   progress(tr('Настройка сервера…'))
   await fsp.writeFile(
     join(dir, 'eula.txt'),
-    tr('# Принято пользователем в Nexus (https://aka.ms/MinecraftEULA)\neula=true\n'),
+    tr('# Принято пользователем в NexAtom (https://aka.ms/MinecraftEULA)\neula=true\n'),
     'utf8'
   )
   if (!existsSync(join(dir, 'server.properties')))
@@ -484,7 +484,7 @@ export async function startServer(id: string) {
   if (!existsSync(join(cfg.dir, cfg.jar))) throw new Error(tr('Файл {0} не найден в папке сервера', cfg.jar))
 
   const java = settings.javaPath || cfg.javaPath || 'java'
-  appendLog(id, tr('\x1b[36m[Nexus] Запуск: {0} {1}\x1b[0m\n', java, launchArgs(cfg).join(' ')))
+  appendLog(id, tr('\x1b[36m[NexAtom] Запуск: {0} {1}\x1b[0m\n', java, launchArgs(cfg).join(' ')))
   const proc = spawn(java, launchArgs(cfg), { cwd: cfg.dir, windowsHide: true })
   const r: Running = { proc, status: 'starting', startedAt: Date.now() }
   running.set(id, r)
@@ -499,12 +499,12 @@ export async function startServer(id: string) {
   })
   proc.stderr.on('data', (d: Buffer) => appendLog(id, `\x1b[31m${err.write(d)}\x1b[0m`))
   proc.on('error', (e) => {
-    appendLog(id, tr('\x1b[31m[Nexus] Не удалось запустить Java: {0}\x1b[0m\n', e.message))
+    appendLog(id, tr('\x1b[31m[NexAtom] Не удалось запустить Java: {0}\x1b[0m\n', e.message))
   })
   proc.on('exit', (code) => {
     if (r.killTimer) clearTimeout(r.killTimer)
     running.delete(id)
-    appendLog(id, tr('\x1b[36m[Nexus] Сервер остановлен (код {0})\x1b[0m\n', code ?? '—'))
+    appendLog(id, tr('\x1b[36m[NexAtom] Сервер остановлен (код {0})\x1b[0m\n', code ?? '—'))
     emit('server:status', { id, status: 'stopped' } satisfies ServerRuntime)
   })
 }

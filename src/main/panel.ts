@@ -205,13 +205,13 @@ async function fetchToken(c: Console) {
 async function connect(c: Console) {
   if (c.closed) return
   link(c.id, c.retry ? 'reconnecting' : 'connecting')
-  out(c.id, tr('\x1b[90m[Nexus] Получаю доступ к консоли у панели…\x1b[0m\r\n'))
+  out(c.id, tr('\x1b[90m[NexAtom] Получаю доступ к консоли у панели…\x1b[0m\r\n'))
   let token: string, socket: string, origin: string
   try {
     ;({ token, socket, origin } = await fetchToken(c))
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    out(c.id, `\x1b[31m[Nexus] ${msg}\x1b[0m\r\n`)
+    out(c.id, `\x1b[31m[NexAtom] ${msg}\x1b[0m\r\n`)
     // ошибки ключа/ID повторять бессмысленно
     if ((e as { fatal?: boolean })?.fatal) {
       link(c.id, 'closed', msg)
@@ -220,7 +220,7 @@ async function connect(c: Console) {
     return scheduleReconnect(c)
   }
 
-  out(c.id, tr('\x1b[90m[Nexus] Подключаюсь к серверу консоли {0}…\x1b[0m\r\n', new URL(socket).host))
+  out(c.id, tr('\x1b[90m[NexAtom] Подключаюсь к серверу консоли {0}…\x1b[0m\r\n', new URL(socket).host))
   // handshakeTimeout — иначе при недоступном порте подключение может висеть бесконечно
   const ws = new WebSocket(socket, { origin, handshakeTimeout: 15_000 })
   c.ws = ws
@@ -232,7 +232,7 @@ async function connect(c: Console) {
   ws.on('open', () => {
     send('auth', [token])
     authTimer = setTimeout(() => {
-      out(c.id, tr('\x1b[31m[Nexus] Сервер консоли не подтвердил вход за 15 секунд\x1b[0m\r\n'))
+      out(c.id, tr('\x1b[31m[NexAtom] Сервер консоли не подтвердил вход за 15 секунд\x1b[0m\r\n'))
       ws.terminate()
     }, 15_000)
   })
@@ -296,7 +296,7 @@ async function connect(c: Console) {
     }
   })
   ws.on('unexpected-response', (_req, res) => {
-    out(c.id, tr('\x1b[31m[Nexus] Сервер консоли отклонил подключение (HTTP {0})\x1b[0m\r\n', res.statusCode))
+    out(c.id, tr('\x1b[31m[NexAtom] Сервер консоли отклонил подключение (HTTP {0})\x1b[0m\r\n', res.statusCode))
   })
   ws.on('error', (e: Error & { code?: string }) => {
     const host = new URL(socket).host
@@ -310,7 +310,7 @@ async function connect(c: Console) {
           : /certificate|self.signed|CERT_/i.test(m + (e.code ?? ''))
             ? tr('Ошибка сертификата сервера консоли {0}: {1}', host, m)
             : m
-    out(c.id, `\x1b[31m[Nexus] ${text}\x1b[0m\r\n`)
+    out(c.id, `\x1b[31m[NexAtom] ${text}\x1b[0m\r\n`)
   })
   ws.on('close', () => {
     clearTimeout(authTimer)
@@ -324,7 +324,7 @@ function scheduleReconnect(c: Console) {
   c.retry++
   const delay = Math.min(30_000, 1500 * 2 ** Math.min(c.retry, 5))
   link(c.id, 'reconnecting')
-  out(c.id, tr('\x1b[90m[Nexus] Повторная попытка через {0} с…\x1b[0m\r\n', Math.round(delay / 1000)))
+  out(c.id, tr('\x1b[90m[NexAtom] Повторная попытка через {0} с…\x1b[0m\r\n', Math.round(delay / 1000)))
   c.timer = setTimeout(() => connect(c), delay)
 }
 

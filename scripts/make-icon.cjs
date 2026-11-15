@@ -1,4 +1,4 @@
-// Рендерит иконку приложения в build/icon.png (512x512) через Electron.
+// Рендерит иконку NexAtom (атом) в build/icon.png (512x512) через Electron.
 // Запуск: npx electron scripts/make-icon.cjs
 const { app, BrowserWindow } = require('electron')
 const { writeFileSync, mkdirSync } = require('node:fs')
@@ -15,7 +15,20 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" vi
   </defs>
   <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#g)"/>
   <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#s)"/>
-  <path d="M160 360 V152 L352 360 V152" fill="none" stroke="#04140d" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(256 256)">
+    <g fill="none" stroke="#04140d" stroke-width="22" stroke-linecap="round">
+      <ellipse rx="190" ry="72" transform="rotate(-32)"/>
+      <ellipse rx="190" ry="72" transform="rotate(32)"/>
+    </g>
+    <!-- ядро — блок в изометрии -->
+    <polygon points="0,-74 64,-37 0,0 -64,-37" fill="#04140d"/>
+    <polygon points="-64,-37 0,0 0,74 -64,37" fill="#04140d" opacity=".78"/>
+    <polygon points="64,-37 0,0 0,74 64,37" fill="#04140d" opacity=".9"/>
+    <polygon points="0,-60 46,-34 0,-8 -46,-34" fill="#7ef0c4" opacity=".55"/>
+    <!-- электроны-пиксели -->
+    <rect x="-18" y="-18" width="36" height="36" rx="6" fill="#04140d" transform="rotate(-32) translate(109 -59) rotate(32)"/>
+    <rect x="-18" y="-18" width="36" height="36" rx="6" fill="#04140d" transform="rotate(32) translate(-109 59) rotate(-32)"/>
+  </g>
 </svg>`
 
 app.whenReady().then(async () => {

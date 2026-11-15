@@ -152,7 +152,7 @@ export function ConsoleTerminal(props: {
             st.echoCmd = cmd
             st.echoUntil = Date.now() + 2000
           }
-          cmdRef.current(cmd).catch((e: Error) => output(`\x1b[31m[Nexus] ${e.message}\x1b[0m\n`))
+          cmdRef.current(cmd).catch((e: Error) => output(`\x1b[31m[NexAtom] ${e.message}\x1b[0m\n`))
         }
         drawInput()
       }

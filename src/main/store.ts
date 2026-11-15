@@ -22,7 +22,7 @@ interface StoreData {
   knownHosts?: Record<string, string>
 }
 
-const file = () => join(app.getPath('userData'), 'nexus-data.json')
+const file = () => join(app.getPath('userData'), 'nexatom-data.json')
 
 let cache: StoreData | null = null
 

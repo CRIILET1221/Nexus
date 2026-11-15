@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron'
 import { join } from 'node:path'
-import { promises as fsp } from 'node:fs'
+import { promises as fsp, existsSync, mkdirSync, copyFileSync, cpSync } from 'node:fs'
 import * as ssh from './ssh'
 import * as mc from './minecraft'
 import * as panel from './panel'
@@ -12,7 +12,28 @@ import * as localfs from './localfs'
 import * as modrinth from './modrinth'
 import { tr } from '../shared/i18n'
 
+migrateFromNexus()
 textures.registerTextureScheme()
+
+/**
+ * Приложение раньше называлось Nexus и хранило данные в %APPDATA%\Nexus.
+ * При первом запуске NexAtom переносим оттуда подключения, серверы, иконки предметов и настройки интерфейса.
+ */
+function migrateFromNexus() {
+  try {
+    const newDir = app.getPath('userData')
+    const oldDir = join(app.getPath('appData'), 'Nexus')
+    if (newDir.toLowerCase() === oldDir.toLowerCase()) return
+    if (existsSync(join(newDir, 'nexatom-data.json')) || !existsSync(join(oldDir, 'nexus-data.json'))) return
+    mkdirSync(newDir, { recursive: true })
+    copyFileSync(join(oldDir, 'nexus-data.json'), join(newDir, 'nexatom-data.json'))
+    for (const sub of ['textures', 'Local Storage']) {
+      if (existsSync(join(oldDir, sub))) cpSync(join(oldDir, sub), join(newDir, sub), { recursive: true })
+    }
+  } catch (e) {
+    console.error('[migrate]', e)
+  }
+}
 
 let mainWindow: BrowserWindow | null = null
 
@@ -24,7 +45,7 @@ function createWindow() {
     minHeight: 640,
     show: false,
     backgroundColor: '#0d0f14',
-    title: 'Nexus',
+    title: 'NexAtom',
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#0d0f14', symbolColor: '#aab3c5', height: 40 },
     webPreferences: {

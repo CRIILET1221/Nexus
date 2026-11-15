@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { tr } from '../shared/i18n'
 
 const API = 'https://api.modrinth.com/v2'
-const UA = 'Nexus-ServerPanel/0.4 (desktop app)'
+const UA = 'NexAtom/0.6 (desktop app)'
 
 async function get<T = any>(path: string, init?: RequestInit): Promise<T> {
   let res: Response

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Boxes, Plug, X, Languages, Terminal as TermIcon } from 'lucide-react'
 import { LANGS, getLang } from '@shared/i18n'
 import { changeLang } from './langInit'
+import { AtomMark } from './components/Logo'
 import type { ConnectionProfile, ServerRuntime, SessionInfo } from '@shared/types'
 import { api } from './api'
 import { PromptModal, useToast } from './components/ui'
@@ -138,8 +139,10 @@ export function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="logo">N</div>
-        <span className="title">Nexus</span>
+        <div className="logo">
+          <AtomMark size={17} />
+        </div>
+        <span className="title">NexAtom</span>
         <span className="subtitle">· {subtitle}</span>
       </div>
       <div className="body">
@@ -190,7 +193,7 @@ export function App() {
                 </button>
               ))}
             </div>
-            <TermIcon size={12} style={{ verticalAlign: -2 }} /> Nexus {version}
+            <TermIcon size={12} style={{ verticalAlign: -2 }} /> NexAtom {version}
           </div>
         </aside>
 
@@ -205,7 +208,7 @@ export function App() {
             <div className="empty-state" style={{ position: 'absolute', inset: 0 }}>
               <span className="spinner" style={{ width: 26, height: 26 }} />
               <h3>{tr('Переподключение к «')}{reconnecting[view.id]}»…</h3>
-              <div>{tr('Связь с сервером прервалась. Nexus пробует восстановить соединение.')}</div>
+              <div>{tr('Связь с сервером прервалась. NexAtom пробует восстановить соединение.')}</div>
             </div>
           )}
           {sessions.map((s) => (

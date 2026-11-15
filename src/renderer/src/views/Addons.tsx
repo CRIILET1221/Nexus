@@ -432,7 +432,7 @@ export function AddonsView(props: {
               <div className="callout" style={{ marginBottom: 12, alignItems: 'center' }}>
                 <Info size={16} />
                 <span style={{ flex: 1 }}>
-                  {tr('Чтобы узнать названия и проверить обновления, Nexus прочитает файлы с сервера (')}{formatBytes(needIdentify)}).
+                  {tr('Чтобы узнать названия и проверить обновления, NexAtom прочитает файлы с сервера (')}{formatBytes(needIdentify)}).
                 </span>
                 <button className="btn sm" onClick={() => identify(items ?? [])}>
                   {tr('Проверить')}

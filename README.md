@@ -1,4 +1,4 @@
-# Nexus
+# NexAtom
 
 **English** · [Русский](README.ru.md)
 
@@ -10,7 +10,7 @@ Built with Electron, React and TypeScript.
 ## Features
 
 **Hosted servers**
-- **Add by API key**: enter the panel address and a client API key, and Nexus finds your servers and fills in the SFTP host, port and username for you. Any SFTP server or VPS can also be added manually.
+- **Add by API key**: enter the panel address and a client API key, and NexAtom finds your servers and fills in the SFTP host, port and username for you. Any SFTP server or VPS can also be added manually.
 - **Server header**: status, CPU/RAM usage, the game address (click to copy) and start/restart/stop buttons, visible on every tab.
 - **Console** over the panel websocket, in a classic terminal style (Classic Console Neue font).
 - **Backups, schedules, startup settings (variables, Docker image), network allocations, databases, sub-users, activity log, rename and reinstall.**
@@ -50,13 +50,13 @@ src/renderer/    — React UI (views/, components/, mc/ — NBT and player data 
 src/shared/      — shared types
 ```
 
-App data is stored in `%APPDATA%\nexus\nexus-data.json`.
+App data is stored in `%APPDATA%\NexAtom\nexatom-data.json`. Data from the old `Nexus` folder is copied over automatically on first launch.
 
 The console font is [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) (MIT), see `src/renderer/src/assets/fonts/LICENSE-clacon.txt`.
 
 ## License
 
-Nexus is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE.md).
+NexAtom is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE.md).
 
 - ✅ You may download, use, study and modify it for yourself, for hobby projects, for your own Minecraft server with friends, and share it for free — keep the license and the `Required Notice` line.
 - ❌ You may not use it for commercial purposes: selling it or modified versions, charging for access, or including it in a paid product or hosting service.

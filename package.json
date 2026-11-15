@@ -1,8 +1,8 @@
 {
-  "name": "nexus",
-  "productName": "Nexus",
-  "version": "0.5.1",
-  "description": "SFTP/SSH клиент и панель локальных серверов Minecraft",
+  "name": "nexatom",
+  "productName": "NexAtom",
+  "version": "0.6.0",
+  "description": "NexAtom: SFTP/SSH client and Minecraft server panel",
   "license": "PolyForm-Noncommercial-1.0.0",
   "main": "./out/main/index.js",
   "private": true,
@@ -17,7 +17,7 @@
   "author": "CRIILET1221",
   "build": {
     "appId": "app.nexus.client",
-    "productName": "Nexus",
+    "productName": "NexAtom",
     "copyright": "Copyright © 2026 CRIILET1221",
     "directories": {
       "output": "release",
@@ -36,7 +36,7 @@
           ]
         }
       ],
-      "artifactName": "Nexus-Setup-${version}.${ext}"
+      "artifactName": "NexAtom-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -44,7 +44,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Nexus",
+      "shortcutName": "NexAtom",
       "deleteAppDataOnUninstall": false
     }
   },
