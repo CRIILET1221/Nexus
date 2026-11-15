@@ -65,11 +65,11 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
         }),
         api.on('panel:state', (m: { id: string; state: PanelState }) => m.id === idRef.current && setState(m.state)),
         api.on('panel:stats', (m: { id: string; stats: PanelStats }) => m.id === idRef.current && setStats(m.stats)),
-        api.on('panel:link', (m: { id: string; state: PanelLink; error?: string }) => {
+        api.on('panel:link', (m: { id: string; state: PanelLink; error?: string; quiet?: boolean }) => {
           if (m.id !== idRef.current) return
           setLinkState(m.state)
           setLinkError(m.error ?? null)
-          if (m.state === 'connected') write(tr('\x1b[90m[NexAtom] Подключено к консоли сервера\x1b[0m\n'))
+          if (m.state === 'connected' && !m.quiet) write(tr('\x1b[90m[NexAtom] Подключено к консоли сервера\x1b[0m\n'))
         })
       ]
       write(tr('\x1b[90m[NexAtom] Подключение к панели {0}…\x1b[0m\n', props.profile.panelUrl))

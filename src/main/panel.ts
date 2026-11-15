@@ -180,16 +180,39 @@ interface Console {
   closed: boolean
   retry: number
   timer?: NodeJS.Timeout
+  /** ошибок токена подряд (сбрасывается после успешного входа) */
+  jwtFails: number
+  /** когда последний раз обновляли токен по «token expiring» */
+  lastRefresh: number
+  /** тихое переподключение (после устаревшего токена) — без служебных строк в консоли */
+  quiet?: boolean
+  /** консоль уже хотя бы раз подключалась */
+  everConnected?: boolean
 }
 
 const consoles = new Map<string, Console>()
 
-const out = (id: string, data: string) => emit('panel:output', { id, data })
-const link = (id: string, state: PanelLink, error?: string) => emit('panel:link', { id, state, error })
+// одинаковые строки подряд (например, одна и та же ошибка панели) не заваливают консоль
+const lastLine = new Map<string, { text: string; at: number; count: number }>()
+const out = (id: string, data: string) => {
+  const prev = lastLine.get(id)
+  const now = Date.now()
+  if (prev && prev.text === data && now - prev.at < 10_000) {
+    prev.count++
+    prev.at = now
+    return
+  }
+  if (prev && prev.count > 0) {
+    emit('panel:output', { id, data: tr('\x1b[90m[NexAtom] (предыдущее сообщение повторилось ещё {0} раз)\x1b[0m\r\n', prev.count) })
+  }
+  lastLine.set(id, { text: data, at: now, count: 0 })
+  emit('panel:output', { id, data })
+}
+const link = (id: string, state: PanelLink, error?: string, quiet?: boolean) => emit('panel:link', { id, state, error, quiet })
 
 export function openConsole(profileId: string): string {
   creds(profileId) // проверка, что всё настроено
-  const c: Console = { id: randomUUID(), profileId, closed: false, retry: 0 }
+  const c: Console = { id: randomUUID(), profileId, closed: false, retry: 0, jwtFails: 0, lastRefresh: 0 }
   consoles.set(c.id, c)
   // запуск после возврата id, чтобы интерфейс успел подписаться на события
   setTimeout(() => connect(c), 50)
@@ -205,7 +228,7 @@ async function fetchToken(c: Console) {
 async function connect(c: Console) {
   if (c.closed) return
   link(c.id, c.retry ? 'reconnecting' : 'connecting')
-  out(c.id, tr('\x1b[90m[NexAtom] Получаю доступ к консоли у панели…\x1b[0m\r\n'))
+  if (!c.quiet) out(c.id, tr('\x1b[90m[NexAtom] Получаю доступ к консоли у панели…\x1b[0m\r\n'))
   let token: string, socket: string, origin: string
   try {
     ;({ token, socket, origin } = await fetchToken(c))
@@ -220,11 +243,12 @@ async function connect(c: Console) {
     return scheduleReconnect(c)
   }
 
-  out(c.id, tr('\x1b[90m[NexAtom] Подключаюсь к серверу консоли {0}…\x1b[0m\r\n', new URL(socket).host))
+  if (!c.quiet) out(c.id, tr('\x1b[90m[NexAtom] Подключаюсь к серверу консоли {0}…\x1b[0m\r\n', new URL(socket).host))
   // handshakeTimeout — иначе при недоступном порте подключение может висеть бесконечно
   const ws = new WebSocket(socket, { origin, handshakeTimeout: 15_000 })
   c.ws = ws
   let authTimer: ReturnType<typeof setTimeout> | undefined
+  let jwtRejected = false
   const send = (event: string, args: unknown[] = []) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event, args }))
   }
@@ -248,20 +272,41 @@ async function connect(c: Console) {
       case 'auth success':
         clearTimeout(authTimer)
         c.retry = 0
-        link(c.id, 'connected')
+        c.jwtFails = 0
+        // «Подключено» молчим только при обновлении токена в уже работавшей консоли
+        link(c.id, 'connected', undefined, c.quiet && c.everConnected)
+        c.quiet = false
+        c.everConnected = true
         send('send logs', [null])
         send('send stats', [null])
         break
       case 'console output':
       case 'install output':
-        out(c.id, String(a[0] ?? '') + '\r\n')
+        // вывод самого сервера — как есть, без склейки повторов (повторы в чате — нормально)
+        emit('panel:output', { id: c.id, data: String(a[0] ?? '') + '\r\n' })
         break
       case 'daemon message':
         out(c.id, tr('\x1b[33m[Панель] {0}\x1b[0m\r\n', a[0] ?? ''))
         break
       case 'daemon error':
-      case 'jwt error':
         out(c.id, tr('\x1b[31m[Панель] {0}\x1b[0m\r\n', a[0] ?? 'ошибка'))
+        break
+      case 'jwt error':
+        // токен отвергнут — не повторяем в этом же соединении, а переподключаемся с новым токеном.
+        // Считаем не больше одного отказа на соединение: Wings может прислать пачку одинаковых ошибок.
+        if (jwtRejected) break
+        jwtRejected = true
+        c.jwtFails++
+        if (c.jwtFails >= 3) {
+          out(c.id, tr('\x1b[31m[NexAtom] Сервер консоли трижды отверг новый токен ({0}). Обычно это значит, что на сервере хостинга сбиты часы — сообщите об этом в поддержку хостинга.\x1b[0m\r\n', a[0] ?? 'jwt'))
+          c.closed = true
+          link(c.id, 'closed', String(a[0] ?? 'jwt'))
+          ws.close()
+          return
+        }
+        // переподключаемся молча — это рутинное обновление токена
+        c.quiet = true
+        ws.close()
         break
       case 'status':
         emit('panel:state', { id: c.id, state: a[0] as PanelState })
@@ -283,6 +328,9 @@ async function connect(c: Console) {
         }
         break
       case 'token expiring':
+        // Wings напоминает каждые несколько секунд — обновляем не чаще раза в минуту
+        if (Date.now() - c.lastRefresh < 60_000) break
+        c.lastRefresh = Date.now()
         try {
           const t = await fetchToken(c)
           send('auth', [t.token])
@@ -324,7 +372,7 @@ function scheduleReconnect(c: Console) {
   c.retry++
   const delay = Math.min(30_000, 1500 * 2 ** Math.min(c.retry, 5))
   link(c.id, 'reconnecting')
-  out(c.id, tr('\x1b[90m[NexAtom] Повторная попытка через {0} с…\x1b[0m\r\n', Math.round(delay / 1000)))
+  if (!c.quiet) out(c.id, tr('\x1b[90m[NexAtom] Повторная попытка через {0} с…\x1b[0m\r\n', Math.round(delay / 1000)))
   c.timer = setTimeout(() => connect(c), delay)
 }
 
@@ -347,6 +395,8 @@ export function reconnect(id: string) {
   if (!c) return
   if (c.timer) clearTimeout(c.timer)
   c.retry = 0
+  c.jwtFails = 0
+  c.closed = false
   c.ws?.removeAllListeners('close')
   c.ws?.close()
   c.ws = undefined
