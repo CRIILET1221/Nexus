@@ -1,48 +1,54 @@
 # Nexus
 
-Панель управления серверами Minecraft для Windows: хостинг (SFTP + API панели Pterodactyl/Pelican) и локальные серверы на вашем ПК — в одном окне, без веб-панели и проводника.
-Electron + React + TypeScript.
+**English** · [Русский](README.ru.md)
 
-## Возможности
+A Minecraft server control panel for Windows. Manage your hosted servers (SFTP + Pterodactyl/Pelican panel API) and local servers on your own PC from one window, without opening the web panel or digging through folders.
+Built with Electron, React and TypeScript.
 
-**Хостинг**
-- **Добавление по API-ключу**: адрес панели + ключ → Nexus сам находит серверы и подставляет адрес, порт и логин SFTP. Можно добавить и вручную (любой SFTP/VPS).
-- **Шапка сервера**: статус, нагрузка CPU/RAM, адрес для игроков (копируется кликом), запуск/перезапуск/остановка — на любой вкладке.
-- **Консоль** через websocket панели, в классическом стиле (шрифт Classic Console Neue).
-- **Бэкапы, расписания, запуск (переменные, Docker-образ), сеть, базы данных, пользователи, журнал действий, переименование и переустановка.**
-- **Автопереподключение**: если связь оборвалась и пароль сохранён, сессия восстанавливается сама.
+> The app interface is in Russian.
 
-**Локальные серверы**
-- Paper, Purpur, Fabric, Forge, Vanilla: скачивание ядра с проверкой контрольной суммы, EULA, `server.properties`, запуск/остановка/перезапуск, консоль, адрес для LAN, параметры RAM/порт/JVM.
-- Локальные бэкапы в zip (с `save-off`/`save-all` на работающем сервере).
+## Features
 
-**Общее для хостинга и локальных серверов**
-- **Файловый менеджер**: drag & drop из проводника, загрузка/скачивание с прогрессом, редактор Monaco, архивы (распаковка/упаковка), скачивание файла по ссылке. Локально удалённое попадает в корзину Windows.
-- **Плагины, моды и датапаки** из каталога Modrinth: поиск с фильтром по ядру и версии, установка вместе с обязательными зависимостями, определение установленных файлов, проверка и установка обновлений, включение/отключение без удаления.
-- **Игроки**: онлайн-список, все заходившие, OP/кик/бан/белый список, профиль игрока — инвентарь, броня, эндер-сундук, здоровье, координаты, эффекты, статистика. Иконки предметов берутся из официального клиента (скачивается по кнопке).
-- **server.properties** в виде формы с пояснениями.
+**Hosted servers**
+- **Add by API key**: enter the panel address and a client API key, and Nexus finds your servers and fills in the SFTP host, port and username for you. Any SFTP server or VPS can also be added manually.
+- **Server header**: status, CPU/RAM usage, the game address (click to copy) and start/restart/stop buttons, visible on every tab.
+- **Console** over the panel websocket, in a classic terminal style (Classic Console Neue font).
+- **Backups, schedules, startup settings (variables, Docker image), network allocations, databases, sub-users, activity log, rename and reinstall.**
+- **Auto-reconnect**: if the connection drops and the password is saved, the session is restored automatically.
 
-Пароли и API-ключи шифруются через Windows DPAPI (`safeStorage`), ключи SSH-серверов проверяются (TOFU).
+**Local servers**
+- Paper, Purpur, Fabric, Forge and Vanilla: core download with checksum verification, EULA, `server.properties`, start/stop/restart, console, LAN address, RAM/port/JVM settings.
+- Local zip backups (using `save-off`/`save-all` while the server is running).
 
-## Запуск
+**For both hosted and local servers**
+- **File manager**: drag & drop from Explorer, uploads and downloads with progress, Monaco editor, archives (extract/compress), download a file from a URL. Local deletions go to the Windows Recycle Bin.
+- **Plugins, mods and datapacks** from Modrinth: search filtered by loader and game version, one-click install with required dependencies, recognition of already installed files, update checks and updates, enable/disable without deleting.
+- **Players**: online list, everyone who has joined, OP/kick/ban/whitelist, and a player profile showing inventory, armor, ender chest, health, coordinates, effects and statistics. Item icons come from the official game client (downloaded on demand).
+- **server.properties** as a form with descriptions.
+
+Passwords and API keys are encrypted with Windows DPAPI (`safeStorage`). SSH host keys are verified on first use (TOFU).
+
+## Getting started
 
 ```bash
 npm install
-npm run dev       # режим разработки с горячей перезагрузкой
-npm run typecheck # проверка типов
-npm run dist      # сборка установщика .exe в release/
+npm run dev       # development mode with hot reload
+npm run typecheck # type checking
+npm run dist      # build the .exe installer into release/
 ```
 
-## Структура
+The installer is not code-signed, so Windows SmartScreen may warn about it ("More info → Run anyway"), and Smart App Control blocks unsigned apps.
+
+## Project structure
 
 ```
-src/main/        — main-процесс: ssh.ts (SFTP/SSH), panel.ts (API панели), localfs.ts (файлы локальных серверов),
-                   minecraft.ts (серверы), modrinth.ts (каталог), textures.ts (иконки), store.ts (данные)
-src/preload/     — мост между интерфейсом и main
-src/renderer/    — React-интерфейс (views/, components/, mc/ — разбор NBT и данных игроков)
-src/shared/      — общие типы
+src/main/        — main process: ssh.ts (SFTP/SSH), panel.ts (panel API), localfs.ts (local server files),
+                   minecraft.ts (local servers), modrinth.ts (catalog), textures.ts (item icons), store.ts (app data)
+src/preload/     — bridge between the UI and the main process
+src/renderer/    — React UI (views/, components/, mc/ — NBT and player data parsing)
+src/shared/      — shared types
 ```
 
-Данные приложения хранятся в `%APPDATA%\nexus\nexus-data.json`.
+App data is stored in `%APPDATA%\nexus\nexus-data.json`.
 
-Шрифт консоли — [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) (MIT), см. `src/renderer/src/assets/fonts/LICENSE-clacon.txt`.
+The console font is [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) (MIT), see `src/renderer/src/assets/fonts/LICENSE-clacon.txt`.
