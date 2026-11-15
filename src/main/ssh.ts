@@ -3,11 +3,13 @@ import { BrowserWindow, dialog } from 'electron'
 import { readFileSync, promises as fsp } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { StringDecoder } from 'node:string_decoder'
-import { join, basename } from 'node:path'
+import { join, basename, dirname } from 'node:path'
+import { tmpdir } from 'node:os'
 import { posix } from 'node:path'
 import type { RemoteEntry, SessionInfo, TransferInfo } from '../shared/types'
 import { profiles, knownHosts } from './store'
 import { emit } from './events'
+import { runTar } from './minecraft'
 import { tr } from '../shared/i18n'
 
 interface Session {
@@ -276,10 +278,16 @@ export async function writeText(sessionId: string, path: string, content: string
 function makeTransfer(sessionId: string, kind: TransferInfo['kind'], name: string, total: number) {
   const t: TransferInfo = { id: randomUUID(), sessionId, kind, name, transferred: 0, total, state: 'active' }
   let last = 0
+  // скорость — по окну последних ~2 секунд
+  const samples: { at: number; bytes: number }[] = []
   const push = (force = false) => {
     const now = Date.now()
     if (force || now - last > 120) {
       last = now
+      samples.push({ at: now, bytes: t.transferred })
+      while (samples.length > 2 && now - samples[0].at > 2000) samples.shift()
+      const first = samples[0]
+      t.speed = now > first.at ? Math.max(0, ((t.transferred - first.bytes) * 1000) / (now - first.at)) : 0
       emit('transfer:update', { ...t })
     }
   }
@@ -290,8 +298,22 @@ function makeTransfer(sessionId: string, kind: TransferInfo['kind'], name: strin
       t.transferred += bytes
       push()
     },
+    /** текущий этап (упаковка, загрузка архива…) */
+    stage(text: string | undefined) {
+      t.stage = text
+      push(true)
+    },
+    /** новый общий объём (например, после упаковки в архив) */
+    reset(total: number) {
+      t.total = total
+      t.transferred = 0
+      samples.length = 0
+      push(true)
+    },
     done() {
       t.state = 'done'
+      t.stage = undefined
+      t.speed = 0
       t.transferred = t.total
       push(true)
     },
@@ -303,27 +325,108 @@ function makeTransfer(sessionId: string, kind: TransferInfo['kind'], name: strin
   }
 }
 
-async function localSize(path: string): Promise<number> {
-  const st = await fsp.stat(path)
-  if (!st.isDirectory()) return st.size
-  let sum = 0
-  for (const name of await fsp.readdir(path)) sum += await localSize(join(path, name))
-  return sum
+
+/** Сколько файлов передаём одновременно. SFTP-запросы ждут ответа сервера, и параллельность
+ *  скрывает эту задержку — главный выигрыш на папках с множеством мелких файлов. */
+const PARALLEL_FILES = 8
+
+/** Операции панели хостинга с архивами (Pterodactyl): пути — как в SFTP, относительно корня сервера */
+export interface ArchiveOps {
+  compress(root: string, files: string[]): Promise<string>
+  decompress(root: string, file: string): Promise<void>
 }
 
-async function remoteSize(sftp: SFTPWrapper, path: string): Promise<number> {
-  const st = await p<any>((cb) => sftp.stat(path, cb as any))
-  if (!isDirMode(st.mode)) return st.size
-  let sum = 0
-  for (const it of await p<any[]>((cb) => sftp.readdir(path, cb as any)))
-    sum += await remoteSize(sftp, posix.join(path, it.filename))
-  return sum
+interface Tree {
+  /** папки относительно корня, '' — сам корень */
+  dirs: string[]
+  /** файлы относительно корня, '' — если сам корень является файлом */
+  files: { rel: string; size: number }[]
 }
 
-function fastPut(sftp: SFTPWrapper, local: string, remote: string, onBytes: (n: number) => void) {
+const treeSize = (t: Tree) => t.files.reduce((s, f) => s + f.size, 0)
+
+/** Архив выгоден, когда файлов много, а они мелкие (конфиги, плагины, датапаки) */
+const worthArchiving = (t: Tree) => t.dirs.length > 0 && t.files.length >= 40 && treeSize(t) / t.files.length < 512 * 1024
+
+async function runPool<T>(items: T[], limit: number, fn: (x: T) => Promise<void>) {
+  let next = 0
+  let firstErr: unknown = null
+  const worker = async () => {
+    while (next < items.length) {
+      const item = items[next++]
+      try {
+        await fn(item)
+      } catch (e) {
+        firstErr ??= e
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  if (firstErr) throw firstErr
+}
+
+const relJoin = (a: string, b: string) => (a ? `${a}/${b}` : b)
+
+async function walkLocal(root: string): Promise<Tree> {
+  const st = await fsp.stat(root)
+  if (!st.isDirectory()) return { dirs: [], files: [{ rel: '', size: st.size }] }
+  const tree: Tree = { dirs: [''], files: [] }
+  let level = ['']
+  while (level.length) {
+    const next: string[] = []
+    await runPool(level, 16, async (rel) => {
+      for (const e of await fsp.readdir(join(root, rel), { withFileTypes: true })) {
+        const r = relJoin(rel, e.name)
+        if (e.isDirectory()) {
+          tree.dirs.push(r)
+          next.push(r)
+        } else if (e.isFile()) {
+          tree.files.push({ rel: r, size: (await fsp.stat(join(root, r))).size })
+        }
+      }
+    })
+    level = next
+  }
+  return tree
+}
+
+/** Обход папки на сервере: размеры берём прямо из readdir, папки одного уровня читаем параллельно */
+async function walkRemote(sftp: SFTPWrapper, root: string): Promise<Tree> {
+  const st = await p<any>((cb) => sftp.stat(root, cb as any))
+  if (!isDirMode(st.mode)) return { dirs: [], files: [{ rel: '', size: st.size }] }
+  const tree: Tree = { dirs: [''], files: [] }
+  let level = ['']
+  while (level.length) {
+    const next: string[] = []
+    await runPool(level, 8, async (rel) => {
+      const dir = rel ? posix.join(root, rel) : root
+      for (const it of await p<any[]>((cb) => sftp.readdir(dir, cb as any))) {
+        if (it.filename === '.' || it.filename === '..') continue
+        const r = relJoin(rel, it.filename)
+        let mode = it.attrs.mode ?? 0
+        let size = it.attrs.size ?? 0
+        if (isLinkMode(mode)) {
+          const real = await p<any>((cb) => sftp.stat(posix.join(dir, it.filename), cb as any)).catch(() => null)
+          if (!real) continue // битая ссылка
+          mode = real.mode
+          size = real.size
+        }
+        if (isDirMode(mode)) {
+          tree.dirs.push(r)
+          next.push(r)
+        } else tree.files.push({ rel: r, size })
+      }
+    })
+    level = next
+  }
+  return tree
+}
+
+function fastPut(sftp: SFTPWrapper, local: string, remote: string, onBytes: (n: number) => void, concurrency = 64) {
   let prev = 0
   return p<void>((cb) =>
     sftp.fastPut(local, remote, {
+      concurrency,
       step: (done: number) => {
         onBytes(done - prev)
         prev = done
@@ -332,10 +435,11 @@ function fastPut(sftp: SFTPWrapper, local: string, remote: string, onBytes: (n: 
   )
 }
 
-function fastGet(sftp: SFTPWrapper, remote: string, local: string, onBytes: (n: number) => void) {
+function fastGet(sftp: SFTPWrapper, remote: string, local: string, onBytes: (n: number) => void, concurrency = 64) {
   let prev = 0
   return p<void>((cb) =>
     sftp.fastGet(remote, local, {
+      concurrency,
       step: (done: number) => {
         onBytes(done - prev)
         prev = done
@@ -344,25 +448,102 @@ function fastGet(sftp: SFTPWrapper, remote: string, local: string, onBytes: (n: 
   )
 }
 
-async function uploadItem(sftp: SFTPWrapper, local: string, remote: string, onBytes: (n: number) => void) {
-  const st = await fsp.stat(local)
-  if (st.isDirectory()) {
-    await p((cb) => sftp.mkdir(remote, cb as any)).catch(() => undefined) // уже существует — ок
-    for (const name of await fsp.readdir(local))
-      await uploadItem(sftp, join(local, name), posix.join(remote, name), onBytes)
-  } else {
-    await fastPut(sftp, local, remote, onBytes)
+const mkdirRemote = (sftp: SFTPWrapper, path: string) => p((cb) => sftp.mkdir(path, cb as any)).catch(() => undefined) // уже есть — ок
+
+/** Папки по уровням (родитель раньше детей), внутри уровня — параллельно */
+async function mkdirLevels(dirs: string[], make: (rel: string) => Promise<unknown>) {
+  const byDepth = new Map<number, string[]>()
+  for (const d of dirs) {
+    const depth = d ? d.split('/').length : 0
+    byDepth.set(depth, [...(byDepth.get(depth) ?? []), d])
+  }
+  for (const depth of [...byDepth.keys()].sort((a, b) => a - b)) await runPool(byDepth.get(depth)!, 16, (d) => make(d).then(() => undefined))
+}
+
+/** Параллельная загрузка дерева файлов */
+async function putTree(sftp: SFTPWrapper, local: string, remote: string, tree: Tree, onBytes: (n: number) => void) {
+  await mkdirLevels(tree.dirs, (d) => mkdirRemote(sftp, d ? posix.join(remote, d) : remote))
+  const per = tree.files.length > 1 ? 8 : 64
+  await runPool(tree.files, PARALLEL_FILES, (f) =>
+    fastPut(sftp, f.rel ? join(local, f.rel) : local, f.rel ? posix.join(remote, f.rel) : remote, onBytes, per)
+  )
+}
+
+/** Параллельное скачивание дерева файлов */
+async function getTree(sftp: SFTPWrapper, remote: string, local: string, tree: Tree, onBytes: (n: number) => void) {
+  await mkdirLevels(tree.dirs, (d) => fsp.mkdir(d ? join(local, d) : local, { recursive: true }))
+  const per = tree.files.length > 1 ? 8 : 64
+  await runPool(tree.files, PARALLEL_FILES, (f) =>
+    fastGet(sftp, f.rel ? posix.join(remote, f.rel) : remote, f.rel ? join(local, f.rel) : local, onBytes, per)
+  )
+}
+
+const tempDir = async () => {
+  const d = join(tmpdir(), 'nexatom-transfer', randomUUID())
+  await fsp.mkdir(d, { recursive: true })
+  return d
+}
+const unlinkRemote = (sftp: SFTPWrapper, path: string) => p((cb) => sftp.unlink(path, cb as any)).catch(() => undefined)
+
+/**
+ * Папка с множеством мелких файлов → один zip: упаковываем на ПК, загружаем одним файлом,
+ * распаковываем на сервере через панель. false — архивный путь не сработал, нужна обычная загрузка.
+ */
+async function putViaArchive(sftp: SFTPWrapper, local: string, remoteDir: string, ops: ArchiveOps, t: ReturnType<typeof makeTransfer>, total: number) {
+  const tmp = await tempDir()
+  const zipName = `.nexatom-upload-${randomUUID().slice(0, 8)}.zip`
+  const zipLocal = join(tmp, zipName)
+  const zipRemote = posix.join(remoteDir, zipName)
+  try {
+    t.stage(tr('Упаковываю на ПК…'))
+    // имя архива — относительно cwd: путь «C:\…» tar принимает за адрес удалённого хоста
+    const r = await runTar(['-a', '-c', '-f', zipName, '-C', dirname(local), basename(local)], tmp)
+    if (r.code !== 0) return false
+    // прогресс показываем в размере самой папки, а не сжатого архива
+    const scale = total / Math.max(1, (await fsp.stat(zipLocal)).size)
+    t.reset(total)
+    t.stage(tr('Загружаю архивом…'))
+    await fastPut(sftp, zipLocal, zipRemote, (n) => t.add(n * scale))
+    t.stage(tr('Распаковываю на сервере…'))
+    try {
+      await ops.decompress(remoteDir, zipName)
+    } catch {
+      return false
+    }
+    return true
+  } finally {
+    await unlinkRemote(sftp, zipRemote)
+    await fsp.rm(tmp, { recursive: true, force: true }).catch(() => undefined)
   }
 }
 
-async function downloadItem(sftp: SFTPWrapper, remote: string, local: string, onBytes: (n: number) => void) {
-  const st = await p<any>((cb) => sftp.stat(remote, cb as any))
-  if (isDirMode(st.mode)) {
-    await fsp.mkdir(local, { recursive: true })
-    for (const it of await p<any[]>((cb) => sftp.readdir(remote, cb as any)))
-      await downloadItem(sftp, posix.join(remote, it.filename), join(local, it.filename), onBytes)
-  } else {
-    await fastGet(sftp, remote, local, onBytes)
+/** Папка на сервере → архив через панель → скачивание одним файлом → распаковка на ПК */
+async function getViaArchive(sftp: SFTPWrapper, remote: string, localDir: string, ops: ArchiveOps, t: ReturnType<typeof makeTransfer>, total: number) {
+  const parent = posix.dirname(remote)
+  let archive: string
+  try {
+    t.stage(tr('Упаковываю на сервере…'))
+    archive = await ops.compress(parent, [posix.basename(remote)])
+  } catch {
+    return false
+  }
+  const archiveRemote = posix.join(parent, archive)
+  const tmp = await tempDir()
+  try {
+    const st = await p<any>((cb) => sftp.stat(archiveRemote, cb as any))
+    const scale = total / Math.max(1, st.size)
+    t.reset(total)
+    t.stage(tr('Скачиваю архивом…'))
+    const archiveLocal = join(tmp, archive)
+    await fastGet(sftp, archiveRemote, archiveLocal, (n) => t.add(n * scale))
+    t.stage(tr('Распаковываю на ПК…'))
+    await fsp.mkdir(localDir, { recursive: true })
+    const r = await runTar(['-xf', archive, '-C', localDir], tmp)
+    if (r.code !== 0) throw new Error(tr('Не удалось распаковать: ') + r.out.slice(0, 300))
+    return true
+  } finally {
+    await unlinkRemote(sftp, archiveRemote)
+    await fsp.rm(tmp, { recursive: true, force: true }).catch(() => undefined)
   }
 }
 
@@ -370,40 +551,58 @@ async function downloadItem(sftp: SFTPWrapper, remote: string, local: string, on
  * Загружает локальные файлы/папки в удалённую папку. Прогресс идёт событиями transfer:update,
  * промис завершается, когда всё загружено (ошибка — если хоть один файл не загрузился).
  */
-export async function upload(sessionId: string, localPaths: string[], remoteDir: string) {
+export async function upload(sessionId: string, localPaths: string[], remoteDir: string, archive?: ArchiveOps) {
   const { sftp } = getSession(sessionId)
   let firstError: unknown = null
-  for (const local of localPaths) {
+  await runPool(localPaths, 3, async (local) => {
     const name = basename(local)
     const t = makeTransfer(sessionId, 'upload', name, 0)
     try {
-      t.info.total = await localSize(local)
-      await uploadItem(sftp, local, posix.join(remoteDir, name), (n) => t.add(n))
+      t.stage(tr('Подготовка…'))
+      const tree = await walkLocal(local)
+      t.reset(treeSize(tree))
+      let done = false
+      if (archive && worthArchiving(tree)) done = await putViaArchive(sftp, local, remoteDir, archive, t, treeSize(tree))
+      if (!done) {
+        t.reset(treeSize(tree))
+        t.stage(tree.files.length > 1 ? tr('Файлов: {0}', tree.files.length) : undefined)
+        await putTree(sftp, local, posix.join(remoteDir, name), tree, (n) => t.add(n))
+      }
       t.done()
     } catch (e) {
       t.fail(e)
       firstError ??= e
     }
-  }
+  })
   emit('sftp:changed', { sessionId, dir: remoteDir })
   if (firstError) throw firstError instanceof Error ? firstError : new Error(String(firstError))
 }
 
-export function download(sessionId: string, remotePaths: string[], localDir: string) {
+/** Скачивает файлы/папки с сервера в локальную папку; промис завершается по окончании */
+export async function download(sessionId: string, remotePaths: string[], localDir: string, archive?: ArchiveOps) {
   const { sftp } = getSession(sessionId)
-  ;(async () => {
-    for (const remote of remotePaths) {
-      const name = posix.basename(remote)
-      const t = makeTransfer(sessionId, 'download', name, 0)
-      try {
-        t.info.total = await remoteSize(sftp, remote)
-        await downloadItem(sftp, remote, join(localDir, name), (n) => t.add(n))
-        t.done()
-      } catch (e) {
-        t.fail(e)
+  let firstError: unknown = null
+  await runPool(remotePaths, 3, async (remote) => {
+    const name = posix.basename(remote)
+    const t = makeTransfer(sessionId, 'download', name, 0)
+    try {
+      t.stage(tr('Подготовка…'))
+      const tree = await walkRemote(sftp, remote)
+      t.reset(treeSize(tree))
+      let done = false
+      if (archive && worthArchiving(tree)) done = await getViaArchive(sftp, remote, localDir, archive, t, treeSize(tree))
+      if (!done) {
+        t.reset(treeSize(tree))
+        t.stage(tree.files.length > 1 ? tr('Файлов: {0}', tree.files.length) : undefined)
+        await getTree(sftp, remote, join(localDir, name), tree, (n) => t.add(n))
       }
+      t.done()
+    } catch (e) {
+      t.fail(e)
+      firstError ??= e
     }
-  })()
+  })
+  if (firstError) throw firstError instanceof Error ? firstError : new Error(String(firstError))
 }
 
 // ---------- SSH-консоль ----------

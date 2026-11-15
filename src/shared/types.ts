@@ -66,6 +66,10 @@ export interface TransferInfo {
   total: number
   state: TransferState
   error?: string
+  /** текущий этап: «Упаковываю на ПК…», «Файлов: 300» и т.п. */
+  stage?: string
+  /** скорость, байт/с */
+  speed?: number
 }
 
 export interface SessionInfo {

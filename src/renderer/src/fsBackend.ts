@@ -44,8 +44,8 @@ export function sftpBackend(sessionId: string, home: string, panelProfileId: str
     remove: (ps) => api.sftp.remove(sessionId, ps),
     readText: (p) => api.sftp.readText(sessionId, p),
     writeText: (p, c) => api.sftp.writeText(sessionId, p, c),
-    upload: (l, d) => api.sftp.upload(sessionId, l, d),
-    download: (ps, d) => api.sftp.download(sessionId, ps, d),
+    upload: (l, d) => api.sftp.upload(sessionId, l, d, panelProfileId),
+    download: (ps, d) => api.sftp.download(sessionId, ps, d, panelProfileId),
     hash: (ps) => api.sftp.hash(sessionId, ps),
     archive: panelProfileId
       ? {

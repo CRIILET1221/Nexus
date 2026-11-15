@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import type { PanelLink, PanelState, PanelStats } from '../shared/types'
 import { profiles } from './store'
 import { emit } from './events'
+import type * as ssh from './ssh'
 import { tr } from '../shared/i18n'
 
 export function normalizePanelUrl(url: string) {
@@ -414,4 +415,19 @@ export function closeConsole(id: string) {
 
 export function closeAll() {
   for (const id of [...consoles.keys()]) closeConsole(id)
+}
+
+/** Архивы на сервере через API панели — для быстрой передачи папок с множеством файлов */
+export function archiveOps(profileId: string): ssh.ArchiveOps {
+  return {
+    async compress(root, files) {
+      const r = await serverRequest(profileId, 'POST', '/files/compress', { root, files })
+      const name = (r as any)?.attributes?.name
+      if (!name) throw new Error('compress: no archive name')
+      return name
+    },
+    async decompress(root, file) {
+      await serverRequest(profileId, 'POST', '/files/decompress', { root, file })
+    }
+  }
 }

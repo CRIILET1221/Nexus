@@ -104,8 +104,8 @@ export const api = {
     writeText: (id: string, path: string, content: string) => i<void>('sftp:writeText', id, path, content),
     readBinary: (id: string, path: string) => i<Uint8Array>('sftp:readBinary', id, path),
     hash: (id: string, paths: string[]) => i<string[]>('sftp:hash', id, paths),
-    upload: (id: string, locals: string[], dir: string) => i<void>('sftp:upload', id, locals, dir),
-    download: (id: string, remotes: string[], localDir: string) => i<void>('sftp:download', id, remotes, localDir)
+    upload: (id: string, locals: string[], dir: string, profileId?: string | null) => i<void>('sftp:upload', id, locals, dir, profileId ?? undefined),
+    download: (id: string, remotes: string[], localDir: string, profileId?: string | null) => i<void>('sftp:download', id, remotes, localDir, profileId ?? undefined)
   },
 
   shell: {

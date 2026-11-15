@@ -523,12 +523,18 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
                     {t.kind === 'upload' ? <Upload size={15} color="var(--accent)" /> : <Download size={15} color="var(--blue)" />}
                     <div>
                       <div className="meta">
-                        <span>{t.name}</span>
+                        <span>
+                          {t.name}
+                          {t.stage && t.state === 'active' && <span className="muted"> · {t.stage}</span>}
+                        </span>
                         <span>
                           {t.state === 'error' ? (
                             <span style={{ color: 'var(--danger)' }}>{t.error}</span>
                           ) : (
-                            `${formatBytes(t.transferred)} / ${formatBytes(t.total)}`
+                            <>
+                              {t.state === 'active' && t.speed ? `${formatBytes(t.speed)}/${tr('с')} · ` : ''}
+                              {`${formatBytes(t.transferred)} / ${formatBytes(t.total)}`}
+                            </>
                           )}
                         </span>
                       </div>
