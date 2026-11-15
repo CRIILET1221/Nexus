@@ -69,7 +69,8 @@ const i = b.invoke
 
 export const api = {
   app: {
-    version: () => i<string>('app:version')
+    version: () => i<string>('app:version'),
+    setLang: (lang: string) => i<void>('app:setLang', lang)
   },
 
   on: b.on,
@@ -89,6 +90,7 @@ export const api = {
   },
 
   ssh: {
+    list: () => i<SessionInfo[]>('ssh:list'),
     connect: (profileId: string, secret?: string) => i<SessionInfo>('ssh:connect', profileId, secret),
     disconnect: (id: string) => i<void>('ssh:disconnect', id)
   },

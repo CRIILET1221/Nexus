@@ -15,19 +15,20 @@ import { PanelManage } from './PanelManage'
 import { joinRemote } from '../util'
 import { sftpBackend } from '../fsBackend'
 import { ServerBar } from './ServerBar'
+import { tr, NOT_FOUND_RE } from '@shared/i18n'
 
 type Tab = 'files' | 'server' | 'addons' | 'players' | 'props' | 'backups' | 'schedules' | 'panel' | 'ssh'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode; title?: string }[] = [
-  { id: 'files', label: 'Файлы', icon: <FolderTree size={15} /> },
-  { id: 'server', label: 'Консоль', icon: <MonitorPlay size={15} />, title: 'Консоль Minecraft через панель хостинга' },
-  { id: 'addons', label: 'Плагины и моды', icon: <Puzzle size={15} />, title: 'Установка и обновление из каталога Modrinth' },
-  { id: 'players', label: 'Игроки', icon: <Users size={15} /> },
-  { id: 'props', label: 'Настройки', icon: <SlidersHorizontal size={15} />, title: 'server.properties' },
-  { id: 'backups', label: 'Бэкапы', icon: <Archive size={15} /> },
-  { id: 'schedules', label: 'Расписания', icon: <CalendarClock size={15} /> },
-  { id: 'panel', label: 'Панель', icon: <LayoutDashboard size={15} />, title: 'Запуск, сеть, базы данных, пользователи, журнал' },
-  { id: 'ssh', label: 'SSH', icon: <SquareTerminal size={15} />, title: 'SSH-терминал (для VPS)' }
+  { id: 'files', label: tr('Файлы'), icon: <FolderTree size={15} /> },
+  { id: 'server', label: tr('Консоль'), icon: <MonitorPlay size={15} />, title: tr('Консоль Minecraft через панель хостинга') },
+  { id: 'addons', label: tr('Плагины и моды'), icon: <Puzzle size={15} />, title: tr('Установка и обновление из каталога Modrinth') },
+  { id: 'players', label: tr('Игроки'), icon: <Users size={15} /> },
+  { id: 'props', label: tr('Настройки'), icon: <SlidersHorizontal size={15} />, title: 'server.properties' },
+  { id: 'backups', label: tr('Бэкапы'), icon: <Archive size={15} /> },
+  { id: 'schedules', label: tr('Расписания'), icon: <CalendarClock size={15} /> },
+  { id: 'panel', label: tr('Панель'), icon: <LayoutDashboard size={15} />, title: tr('Запуск, сеть, базы данных, пользователи, журнал') },
+  { id: 'ssh', label: 'SSH', icon: <SquareTerminal size={15} />, title: tr('SSH-терминал (для VPS)') }
 ]
 
 export function SessionView(props: {
@@ -58,13 +59,13 @@ export function SessionView(props: {
     return {
       key: s.id,
       canCommand: panelReady,
-      commandHint: 'Чтобы управлять игроками, подключите API панели во вкладке «Консоль». Списки ниже доступны только для просмотра.',
+      commandHint: tr('Чтобы управлять игроками, подключите API панели во вкладке «Консоль». Списки ниже доступны только для просмотра.'),
       command: (cmd) => api.panel.request(p!.id, 'POST', '/command', { command: cmd }).then(() => undefined),
       readFile: async (name) => {
         try {
           return await api.sftp.readText(s.id, joinRemote(root, name))
         } catch (e) {
-          if (/no such file|not exist|не найден/i.test(String(e))) return null
+          if (NOT_FOUND_RE.test(String(e))) return null
           throw e
         }
       },
@@ -100,8 +101,8 @@ export function SessionView(props: {
         </div>
         <div className="spacer" />
         {panelPid && <ServerBar profileId={panelPid} sftpHost={s.host.split(':')[0]} active={props.active} />}
-        <button className="btn ghost sm" onClick={props.onDisconnect} title="Закрыть соединение">
-          <LogOut size={14} /> Отключиться
+        <button className="btn ghost sm" onClick={props.onDisconnect} title={tr('Закрыть соединение')}>
+          <LogOut size={14} />{' '}{tr('Отключиться')}
         </button>
       </div>
       <div className="tabs">

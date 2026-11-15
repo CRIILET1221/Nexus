@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
+import { tr } from '@shared/i18n'
 
 // ---------- Модальное окно ----------
 
@@ -31,7 +32,7 @@ export function Modal(props: {
         <div className="modal-head">
           {props.icon}
           <h2>{props.title}</h2>
-          <button className="btn ghost sm icon" onClick={onClose} title="Закрыть">
+          <button className="btn ghost sm icon" onClick={onClose} title={tr('Закрыть')}>
             <X size={16} />
           </button>
         </div>
@@ -206,7 +207,7 @@ export function PromptModal(props: {
       footer={
         <>
           <button className="btn" onClick={props.onClose}>
-            Отмена
+            {tr('Отмена')}
           </button>
           <button className="btn primary" disabled={busy} onClick={submit}>
             {busy && <span className="spinner" />}

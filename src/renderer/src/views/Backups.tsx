@@ -5,6 +5,7 @@ import { api } from '../api'
 import { errText, usePanelServer } from '../adapter'
 import { Modal, useAction, useToast } from '../components/ui'
 import { formatBytes, formatDate, uid } from '../util'
+import { tr } from '@shared/i18n'
 
 interface PanelBackup {
   uuid: string
@@ -85,28 +86,28 @@ export function PanelBackups(props: { profileId: string; visible: boolean }) {
 
   const restore = async (b: PanelBackup) => {
     const ok = await api.dialog.confirm({
-      title: 'Восстановление бэкапа',
-      message: `Восстановить «${b.name}»?`,
-      detail: 'Сервер будет остановлен, файлы из бэкапа заменят текущие. Файлы, которых нет в бэкапе, останутся.',
-      ok: 'Восстановить',
+      title: tr('Восстановление бэкапа'),
+      message: tr('Восстановить «{0}»?', b.name),
+      detail: tr('Сервер будет остановлен, файлы из бэкапа заменят текущие. Файлы, которых нет в бэкапе, останутся.'),
+      ok: tr('Восстановить'),
       danger: true
     })
     if (!ok) return
     const truncate = await api.dialog.confirm({
-      title: 'Очистить сервер?',
-      message: 'Удалить ВСЕ текущие файлы сервера перед восстановлением?',
-      detail: 'Выберите «Удалить», чтобы сервер стал точной копией бэкапа. «Отмена» — восстановить поверх текущих файлов.',
-      ok: 'Удалить и восстановить',
+      title: tr('Очистить сервер?'),
+      message: tr('Удалить ВСЕ текущие файлы сервера перед восстановлением?'),
+      detail: tr('Выберите «Удалить», чтобы сервер стал точной копией бэкапа. «Отмена» — восстановить поверх текущих файлов.'),
+      ok: tr('Удалить и восстановить'),
       danger: true
     })
-    if (await run(() => api.panel.request(props.profileId, 'POST', `/backups/${b.uuid}/restore`, { truncate }), 'Восстановление запущено — следите за консолью'))
+    if (await run(() => api.panel.request(props.profileId, 'POST', `/backups/${b.uuid}/restore`, { truncate }), tr('Восстановление запущено — следите за консолью')))
       load()
   }
 
   const remove = async (b: PanelBackup) => {
-    if (b.locked) return toast('Бэкап закреплён — сначала снимите замок', 'error')
-    const ok = await api.dialog.confirm({ title: 'Удаление', message: `Удалить бэкап «${b.name}»?`, detail: 'Это нельзя отменить.', ok: 'Удалить', danger: true })
-    if (ok && (await run(() => api.panel.request(props.profileId, 'DELETE', `/backups/${b.uuid}`), 'Бэкап удалён'))) load()
+    if (b.locked) return toast(tr('Бэкап закреплён — сначала снимите замок'), 'error')
+    const ok = await api.dialog.confirm({ title: tr('Удаление'), message: tr('Удалить бэкап «{0}»?', b.name), detail: tr('Это нельзя отменить.'), ok: tr('Удалить'), danger: true })
+    if (ok && (await run(() => api.panel.request(props.profileId, 'DELETE', `/backups/${b.uuid}`), tr('Бэкап удалён')))) load()
     else if (ok) load()
   }
 
@@ -122,28 +123,28 @@ export function PanelBackups(props: { profileId: string; visible: boolean }) {
     <div className="view">
       <div className="view-narrow">
         <div className="section-title">
-          <Archive size={16} /> Бэкапы сервера
+          <Archive size={16} />{' '}{tr('Бэкапы сервера')}
           {limit !== null && (
             <span className={`badge ${limit && used >= limit ? 'warn' : ''}`}>
-              {used} из {limit || '∞'}
+              {used}{' '}{tr('из')}{' '}{limit || '∞'}
             </span>
           )}
           <div className="spacer" />
           <button className="btn sm ghost" onClick={load}>
-            <RefreshCw size={13} /> Обновить
+            <RefreshCw size={13} />{' '}{tr('Обновить')}
           </button>
           <button className="btn primary sm" disabled={limit === 0 || (!!limit && used >= limit)} onClick={() => setCreating(true)}>
-            <Plus size={14} /> Создать бэкап
+            <Plus size={14} />{' '}{tr('Создать бэкап')}
           </button>
         </div>
         {limit === 0 && (
           <div className="callout warn" style={{ marginBottom: 14 }}>
-            Ваш тариф хостинга не включает бэкапы (лимит 0).
+            {tr('Ваш тариф хостинга не включает бэкапы (лимит 0).')}
           </div>
         )}
         {!!limit && used >= limit && (
           <div className="callout warn" style={{ marginBottom: 14 }}>
-            Достигнут лимит бэкапов. Удалите старый (незакреплённый) бэкап, чтобы создать новый.
+            {tr('Достигнут лимит бэкапов. Удалите старый (незакреплённый) бэкап, чтобы создать новый.')}
           </div>
         )}
 
@@ -153,9 +154,9 @@ export function PanelBackups(props: { profileId: string; visible: boolean }) {
           {error ? (
             <div className="empty-row">{error}</div>
           ) : !list ? (
-            <div className="empty-row">Загрузка…</div>
+            <div className="empty-row">{tr('Загрузка…')}</div>
           ) : list.length === 0 ? (
-            <div className="empty-row">Бэкапов пока нет</div>
+            <div className="empty-row">{tr('Бэкапов пока нет')}</div>
           ) : (
             list.map((b) => (
               <div className="r" key={b.uuid}>
@@ -167,26 +168,26 @@ export function PanelBackups(props: { profileId: string; visible: boolean }) {
                   <span>
                     {!b.completed ? (
                       <>
-                        <span className="spinner" style={{ display: 'inline-block', width: 11, height: 11, verticalAlign: -2 }} /> Создаётся…
+                        <span className="spinner" style={{ display: 'inline-block', width: 11, height: 11, verticalAlign: -2 }} />{' '}{tr('Создаётся…')}
                       </>
                     ) : b.ok ? (
                       `${formatBytes(b.bytes)} · ${formatDate(b.created)}`
                     ) : (
-                      <span style={{ color: 'var(--danger)' }}>Ошибка создания · {formatDate(b.created)}</span>
+                      <span style={{ color: 'var(--danger)' }}>{tr('Ошибка создания ·')}{' '}{formatDate(b.created)}</span>
                     )}
                   </span>
                 </div>
                 <div className="acts">
-                  <button className="btn sm icon" title={b.locked ? 'Открепить' : 'Закрепить (защита от удаления)'} disabled={!b.completed} onClick={() => toggleLock(b)}>
+                  <button className="btn sm icon" title={b.locked ? tr('Открепить') : tr('Закрепить (защита от удаления)')} disabled={!b.completed} onClick={() => toggleLock(b)}>
                     {b.locked ? <Unlock size={14} /> : <Lock size={14} />}
                   </button>
                   <button className="btn sm" disabled={!b.completed || !b.ok} onClick={() => download(b)}>
-                    <Download size={14} /> Скачать
+                    <Download size={14} />{' '}{tr('Скачать')}
                   </button>
                   <button className="btn sm" disabled={!b.completed || !b.ok} onClick={() => restore(b)}>
-                    <RotateCcw size={14} /> Восстановить
+                    <RotateCcw size={14} />{' '}{tr('Восстановить')}
                   </button>
-                  <button className="btn sm icon danger" title="Удалить" disabled={!b.completed} onClick={() => remove(b)}>
+                  <button className="btn sm icon danger" title={tr('Удалить')} disabled={!b.completed} onClick={() => remove(b)}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -218,12 +219,12 @@ function CreatePanelBackup(props: { profileId: string; onClose: () => void; onCr
   const [busy, setBusy] = useState(false)
   return (
     <Modal
-      title="Новый бэкап"
+      title={tr('Новый бэкап')}
       onClose={props.onClose}
       footer={
         <>
           <button className="btn" onClick={props.onClose}>
-            Отмена
+            {tr('Отмена')}
           </button>
           <button
             className="btn primary"
@@ -232,30 +233,30 @@ function CreatePanelBackup(props: { profileId: string; onClose: () => void; onCr
               setBusy(true)
               const ok = await run(
                 () => api.panel.request(props.profileId, 'POST', '/backups', { name: name.trim() || undefined, ignored: ignored.trim(), is_locked: locked }),
-                'Создание бэкапа запущено'
+                tr('Создание бэкапа запущено')
               )
               setBusy(false)
               if (ok !== undefined) props.onCreated()
             }}
           >
-            {busy && <span className="spinner" />} Создать
+            {busy && <span className="spinner" />}{' '}{tr('Создать')}
           </button>
         </>
       }
     >
       <div className="modal-body stack">
         <div className="field">
-          <label>Название</label>
-          <input className="input" placeholder="Например: перед обновлением модов" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <label>{tr('Название')}</label>
+          <input className="input" placeholder={tr('Например: перед обновлением модов')} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         </div>
         <div className="field">
-          <label>Не включать в бэкап</label>
+          <label>{tr('Не включать в бэкап')}</label>
           <textarea className="input mono" rows={4} placeholder={'logs/\ncache/\n*.log'} value={ignored} onChange={(e) => setIgnored(e.target.value)} />
-          <span className="hint">По одному пути или маске на строку, как в .gitignore</span>
+          <span className="hint">{tr('По одному пути или маске на строку, как в .gitignore')}</span>
         </div>
         <label className="check">
           <input type="checkbox" checked={locked} onChange={(e) => setLocked(e.target.checked)} />
-          <span>Закрепить — защитить от удаления и автоматической ротации</span>
+          <span>{tr('Закрепить — защитить от удаления и автоматической ротации')}</span>
         </label>
       </div>
     </Modal>
@@ -282,7 +283,7 @@ function DownloadList(props: { downloads: Record<string, { name: string; transfe
               </div>
             </div>
             <span className="muted" style={{ textAlign: 'right' }}>
-              {d.done ? 'Скачано' : d.error ? 'Ошибка' : `${pct.toFixed(0)}%`}
+              {d.done ? tr('Скачано') : d.error ? tr('Ошибка') : `${pct.toFixed(0)}%`}
             </span>
           </div>
         )
@@ -306,7 +307,7 @@ export function LocalBackups(props: { serverId: string; running: boolean; visibl
 
   const create = async () => {
     setBusy(true)
-    await run(() => api.mc.backupCreate(props.serverId, label), 'Бэкап создан')
+    await run(() => api.mc.backupCreate(props.serverId, label), tr('Бэкап создан'))
     setBusy(false)
     setLabel('')
     load()
@@ -314,21 +315,21 @@ export function LocalBackups(props: { serverId: string; running: boolean; visibl
 
   const restore = async (b: LocalBackup) => {
     const ok = await api.dialog.confirm({
-      title: 'Восстановление',
-      message: `Восстановить «${b.name}»?`,
-      detail: 'Текущие файлы сервера будут перемещены в корзину Windows (их можно вернуть), затем бэкап распакуется.',
-      ok: 'Восстановить',
+      title: tr('Восстановление'),
+      message: tr('Восстановить «{0}»?', b.name),
+      detail: tr('Текущие файлы сервера будут перемещены в корзину Windows (их можно вернуть), затем бэкап распакуется.'),
+      ok: tr('Восстановить'),
       danger: true
     })
     if (!ok) return
     setBusy(true)
-    await run(() => api.mc.backupRestore(props.serverId, b.name), 'Бэкап восстановлен')
+    await run(() => api.mc.backupRestore(props.serverId, b.name), tr('Бэкап восстановлен'))
     setBusy(false)
   }
 
   const remove = async (b: LocalBackup) => {
-    const ok = await api.dialog.confirm({ title: 'Удаление', message: `Удалить «${b.name}»?`, detail: 'Файл будет перемещён в корзину.', ok: 'Удалить', danger: true })
-    if (ok) await run(() => api.mc.backupDelete(props.serverId, b.name), 'Бэкап удалён')
+    const ok = await api.dialog.confirm({ title: tr('Удаление'), message: tr('Удалить «{0}»?', b.name), detail: tr('Файл будет перемещён в корзину.'), ok: tr('Удалить'), danger: true })
+    if (ok) await run(() => api.mc.backupDelete(props.serverId, b.name), tr('Бэкап удалён'))
     load()
   }
 
@@ -338,29 +339,29 @@ export function LocalBackups(props: { serverId: string; running: boolean; visibl
     <div className="view">
       <div className="view-narrow">
         <div className="section-title">
-          <Archive size={16} /> Бэкапы
+          <Archive size={16} />{' '}{tr('Бэкапы')}
           {list && <span className="badge">{list.length} · {formatBytes(total)}</span>}
           <div className="spacer" />
           <button className="btn sm ghost" onClick={() => api.mc.backupsDir(props.serverId).then((d) => api.fs.openPath(d))}>
-            <FolderOpen size={13} /> Открыть папку
+            <FolderOpen size={13} />{' '}{tr('Открыть папку')}
           </button>
         </div>
         <div className="card row" style={{ padding: 12, marginBottom: 14 }}>
-          <input className="input" placeholder="Подпись (необязательно)" value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} />
+          <input className="input" placeholder={tr('Подпись (необязательно)')} value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} />
           <button className="btn primary" disabled={busy} onClick={create}>
-            {busy ? <span className="spinner" /> : <Plus size={15} />} Создать бэкап
+            {busy ? <span className="spinner" /> : <Plus size={15} />}{' '}{tr('Создать бэкап')}
           </button>
         </div>
         {props.running && (
           <div className="callout" style={{ marginBottom: 14 }}>
-            Сервер запущен: перед архивацией Nexus выполнит save-all и временно отключит автосохранение, чтобы мир не повредился.
+            {tr('Сервер запущен: перед архивацией Nexus выполнит save-all и временно отключит автосохранение, чтобы мир не повредился.')}
           </div>
         )}
         <div className="rows">
           {!list ? (
-            <div className="empty-row">Загрузка…</div>
+            <div className="empty-row">{tr('Загрузка…')}</div>
           ) : list.length === 0 ? (
-            <div className="empty-row">Бэкапов пока нет. Они сохраняются в папку backups внутри сервера.</div>
+            <div className="empty-row">{tr('Бэкапов пока нет. Они сохраняются в папку backups внутри сервера.')}</div>
           ) : (
             list.map((b) => (
               <div className="r" key={b.name}>
@@ -372,8 +373,8 @@ export function LocalBackups(props: { serverId: string; running: boolean; visibl
                   </span>
                 </div>
                 <div className="acts">
-                  <button className="btn sm" disabled={busy || props.running} title={props.running ? 'Остановите сервер' : ''} onClick={() => restore(b)}>
-                    <RotateCcw size={14} /> Восстановить
+                  <button className="btn sm" disabled={busy || props.running} title={props.running ? tr('Остановите сервер') : ''} onClick={() => restore(b)}>
+                    <RotateCcw size={14} />{' '}{tr('Восстановить')}
                   </button>
                   <button className="btn sm icon danger" disabled={busy} onClick={() => remove(b)}>
                     <Trash2 size={14} />

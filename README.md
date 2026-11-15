@@ -5,7 +5,7 @@
 A Minecraft server control panel for Windows. Manage your hosted servers (SFTP + Pterodactyl/Pelican panel API) and local servers on your own PC from one window, without opening the web panel or digging through folders.
 Built with Electron, React and TypeScript.
 
-> The app interface is in Russian.
+> The interface is available in English, Ukrainian and Russian (switch at the bottom of the sidebar; by default it follows the Windows language).
 
 ## Features
 
@@ -34,6 +34,7 @@ Passwords and API keys are encrypted with Windows DPAPI (`safeStorage`). SSH hos
 npm install
 npm run dev       # development mode with hot reload
 npm run typecheck # type checking
+npm run i18n:check # make sure every UI string is translated
 npm run dist      # build the .exe installer into release/
 ```
 

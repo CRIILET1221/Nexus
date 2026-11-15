@@ -10,6 +10,7 @@ import type { FsBackend } from '../fsBackend'
 import { Switch, useAction, useToast } from '../components/ui'
 import { formatBytes, formatDate, joinRemote } from '../util'
 import { worldName } from '../mc/world'
+import { tr, NOT_FOUND_RE } from '@shared/i18n'
 
 /** Что и куда ставим */
 export interface AddonTarget {
@@ -32,13 +33,13 @@ const LOADERS: Record<AddonType, { id: string; name: string; search: string[] }[
     { id: 'forge', name: 'Forge', search: ['forge'] },
     { id: 'neoforge', name: 'NeoForge', search: ['neoforge'] }
   ],
-  datapack: [{ id: 'datapack', name: 'Датапак', search: ['datapack'] }]
+  datapack: [{ id: 'datapack', name: tr('Датапак'), search: ['datapack'] }]
 }
 
 const TYPE_NAMES: Record<AddonType, { many: string; one: string; folder: string }> = {
-  plugin: { many: 'Плагины', one: 'плагин', folder: 'plugins' },
-  mod: { many: 'Моды', one: 'мод', folder: 'mods' },
-  datapack: { many: 'Датапаки', one: 'датапак', folder: 'datapacks' }
+  plugin: { many: tr('Плагины'), one: tr('плагин'), folder: 'plugins' },
+  mod: { many: tr('Моды'), one: tr('мод'), folder: 'mods' },
+  datapack: { many: tr('Датапаки'), one: tr('датапак'), folder: 'datapacks' }
 }
 
 const loaderOf = (t: AddonTarget) => LOADERS[t.type].find((l) => l.id === t.loader) ?? LOADERS[t.type][0]
@@ -191,7 +192,7 @@ export function AddonsView(props: {
       setListError(null)
       try {
         const entries = await fs.list(dir).catch((e) => {
-          if (/not exist|no such|не найден/i.test(String(e))) return [] as RemoteEntry[]
+          if (NOT_FOUND_RE.test(String(e))) return [] as RemoteEntry[]
           throw e
         })
         const list = entries
@@ -219,7 +220,7 @@ export function AddonsView(props: {
 
   const toggle = async (x: Installed) => {
     const to = joinRemote(dir!, x.enabled ? x.baseName + '.disabled' : x.baseName)
-    if (await run(() => fs.rename(x.entry.path, to).then(() => true), x.enabled ? `${title(x)} отключён` : `${title(x)} включён`)) {
+    if (await run(() => fs.rename(x.entry.path, to).then(() => true), x.enabled ? tr('{0} отключён', title(x)) : tr('{0} включён', title(x)))) {
       setNeedRestart(true)
       loadInstalled(false).then(() => setItems((cur) => cur?.map((c) => (c.baseName === x.baseName ? { ...c, version: x.version, project: x.project, update: x.update, sha1: x.sha1 } : c)) ?? null))
     }
@@ -227,14 +228,14 @@ export function AddonsView(props: {
 
   const remove = async (x: Installed) => {
     const ok = await api.dialog.confirm({
-      title: 'Удаление',
-      message: `Удалить ${title(x)}?`,
-      detail: fs.trash ? 'Файл попадёт в корзину Windows.' : 'Файл будет удалён с сервера. Его настройки (папка конфига) останутся.',
-      ok: 'Удалить',
+      title: tr('Удаление'),
+      message: tr('Удалить {0}?', title(x)),
+      detail: fs.trash ? tr('Файл попадёт в корзину Windows.') : tr('Файл будет удалён с сервера. Его настройки (папка конфига) останутся.'),
+      ok: tr('Удалить'),
       danger: true
     })
     if (!ok) return
-    if (await run(() => fs.remove([x.entry.path]).then(() => true), `${title(x)} удалён`)) {
+    if (await run(() => fs.remove([x.entry.path]).then(() => true), tr('{0} удалён', title(x)))) {
       setNeedRestart(true)
       setItems((cur) => cur?.filter((c) => c.entry.path !== x.entry.path) ?? null)
     }
@@ -262,10 +263,10 @@ export function AddonsView(props: {
   /** ставит проект и его обязательные зависимости */
   const install = async (projectId: string, name: string) => {
     if (!target || !dir) return
-    setBusy((b) => ({ ...b, [projectId]: 'Ищу версию…' }))
+    setBusy((b) => ({ ...b, [projectId]: tr('Ищу версию…') }))
     try {
       const v = await pickVersion(projectId)
-      if (!v) throw new Error(`У «${name}» нет версии для ${loaderOf(target).name}${target.gameVersion ? ' ' + target.gameVersion : ''}`)
+      if (!v) throw new Error(tr('У «{0}» нет версии для {1}{2}', name, loaderOf(target).name, target.gameVersion ? ' ' + target.gameVersion : ''))
       const have = new Set(installedProjects)
       const queue: ModVersion[] = [v]
       const extra: string[] = []
@@ -287,10 +288,10 @@ export function AddonsView(props: {
         extra.push(...names.map((p) => p.title))
       }
       for (let i = 0; i < queue.length; i++) {
-        setBusy((b) => ({ ...b, [projectId]: queue.length > 1 ? `Скачиваю ${i + 1}/${queue.length}…` : 'Скачиваю…' }))
+        setBusy((b) => ({ ...b, [projectId]: queue.length > 1 ? tr('Скачиваю {0}/{1}…', i + 1, queue.length) : tr('Скачиваю…') }))
         await putVersion(queue[i])
       }
-      toast(`Установлено: ${name}${extra.length ? ` + зависимости: ${extra.join(', ')}` : ''}`, 'success')
+      toast(tr('Установлено: {0}{1}', name, extra.length ? ` + зависимости: ${extra.join(', ')}` : ''), 'success')
       setNeedRestart(true)
       loadInstalled()
     } catch (e) {
@@ -307,11 +308,11 @@ export function AddonsView(props: {
   const update = async (x: Installed) => {
     if (!x.update) return
     const key = x.entry.path
-    setBusy((b) => ({ ...b, [key]: 'Обновляю…' }))
+    setBusy((b) => ({ ...b, [key]: tr('Обновляю…') }))
     try {
       await putVersion(x.update)
       if (x.update.file.filename !== x.entry.name) await fs.remove([x.entry.path])
-      toast(`${title(x)} обновлён до ${x.update.number}`, 'success')
+      toast(tr('{0} обновлён до {1}', title(x), x.update.number), 'success')
       setNeedRestart(true)
       loadInstalled()
     } catch (e) {
@@ -333,7 +334,7 @@ export function AddonsView(props: {
     return (
       <div className="view">
         <div className="empty-row" style={{ padding: 40, textAlign: 'center' }}>
-          <span className="spinner" style={{ display: 'inline-block', verticalAlign: -3 }} /> Определяю тип сервера…
+          <span className="spinner" style={{ display: 'inline-block', verticalAlign: -3 }} />{' '}{tr('Определяю тип сервера…')}
         </div>
       </div>
     )
@@ -350,7 +351,7 @@ export function AddonsView(props: {
           <Package size={18} />
           {props.preset ? (
             <span>
-              <b>{names.many}</b> для {loaderOf(target).name}
+              <b>{names.many}</b>{' '}{tr('для')}{' '}{loaderOf(target).name}
               {target.gameVersion ? ` ${target.gameVersion}` : ''}
             </span>
           ) : (
@@ -374,8 +375,8 @@ export function AddonsView(props: {
               <input
                 className="input mono"
                 style={{ width: 110 }}
-                placeholder="версия"
-                title="Версия Minecraft (например 1.21.4)"
+                placeholder={tr('версия')}
+                title={tr('Версия Minecraft (например 1.21.4)')}
                 value={target.gameVersion ?? ''}
                 onChange={(e) => setTarget({ ...target, gameVersion: e.target.value.trim() || undefined })}
               />
@@ -391,11 +392,11 @@ export function AddonsView(props: {
           <div className="callout warn" style={{ marginBottom: 14, alignItems: 'center' }}>
             <Info size={16} />
             <span style={{ flex: 1 }}>
-              {ad.canCommand ? 'Изменения вступят в силу после перезапуска сервера.' : 'Изменения применятся при следующем запуске сервера.'}
+              {ad.canCommand ? tr('Изменения вступят в силу после перезапуска сервера.') : tr('Изменения применятся при следующем запуске сервера.')}
             </span>
             {ad.restart && ad.canCommand && (
-              <button className="btn sm" onClick={() => run(() => ad.restart!().then(() => setNeedRestart(false)), 'Сервер перезапускается')}>
-                <RotateCcw size={13} /> Перезапустить
+              <button className="btn sm" onClick={() => run(() => ad.restart!().then(() => setNeedRestart(false)), tr('Сервер перезапускается'))}>
+                <RotateCcw size={13} />{' '}{tr('Перезапустить')}
               </button>
             )}
           </div>
@@ -404,10 +405,10 @@ export function AddonsView(props: {
         <div className="pp-bar">
           <div className="subtabs" style={{ margin: 0 }}>
             <button className={tab === 'installed' ? 'on' : ''} onClick={() => setTab('installed')}>
-              <CheckCircle2 size={14} /> Установленные {items && <span className="badge">{items.length}</span>}
+              <CheckCircle2 size={14} />{' '}{tr('Установленные')}{' '}{items && <span className="badge">{items.length}</span>}
             </button>
             <button className={tab === 'catalog' ? 'on' : ''} onClick={() => setTab('catalog')}>
-              <Search size={14} /> Каталог Modrinth
+              <Search size={14} />{' '}{tr('Каталог Modrinth')}
             </button>
           </div>
           <div className="spacer" />
@@ -415,11 +416,11 @@ export function AddonsView(props: {
             <>
               {updatesCount > 0 && (
                 <button className="btn sm primary" onClick={updateAll}>
-                  <ArrowUpCircle size={13} /> Обновить всё ({updatesCount})
+                  <ArrowUpCircle size={13} />{' '}{tr('Обновить всё (')}{updatesCount})
                 </button>
               )}
               <button className="btn sm ghost" onClick={() => loadInstalled()} disabled={identifying}>
-                {identifying ? <span className="spinner" /> : <RefreshCw size={13} />} Обновить список
+                {identifying ? <span className="spinner" /> : <RefreshCw size={13} />}{' '}{tr('Обновить список')}
               </button>
             </>
           )}
@@ -431,10 +432,10 @@ export function AddonsView(props: {
               <div className="callout" style={{ marginBottom: 12, alignItems: 'center' }}>
                 <Info size={16} />
                 <span style={{ flex: 1 }}>
-                  Чтобы узнать названия и проверить обновления, Nexus прочитает файлы с сервера ({formatBytes(needIdentify)}).
+                  {tr('Чтобы узнать названия и проверить обновления, Nexus прочитает файлы с сервера (')}{formatBytes(needIdentify)}).
                 </span>
                 <button className="btn sm" onClick={() => identify(items ?? [])}>
-                  Проверить
+                  {tr('Проверить')}
                 </button>
               </div>
             )}
@@ -442,12 +443,12 @@ export function AddonsView(props: {
               {listError ? (
                 <div className="empty-row">{listError}</div>
               ) : items === null ? (
-                <div className="empty-row">Загрузка…</div>
+                <div className="empty-row">{tr('Загрузка…')}</div>
               ) : items.length === 0 ? (
                 <div className="empty-row">
-                  {names.many} не установлены.{' '}
+                  {names.many}{' '}{tr('не установлены.')}{' '}
                   <a className="link" onClick={() => setTab('catalog')}>
-                    Открыть каталог
+                    {tr('Открыть каталог')}
                   </a>
                 </div>
               ) : (
@@ -458,17 +459,17 @@ export function AddonsView(props: {
                       <b>
                         {title(x)}
                         {x.version && <span className="muted" style={{ fontWeight: 400, marginLeft: 8, fontSize: 12.5 }}>{x.version.number}</span>}
-                        {!x.enabled && <span className="badge" style={{ marginLeft: 8 }}>отключён</span>}
+                        {!x.enabled && <span className="badge" style={{ marginLeft: 8 }}>{tr('отключён')}</span>}
                         {x.update && (
-                          <span className="badge green" style={{ marginLeft: 8 }} title={`Доступна версия ${x.update.number}`}>
-                            обновление {x.update.number}
+                          <span className="badge green" style={{ marginLeft: 8 }} title={tr('Доступна версия {0}', x.update.number)}>
+                            {tr('обновление')}{' '}{x.update.number}
                           </span>
                         )}
                       </b>
                       <span className="mono">
                         {x.entry.name}
                         {!x.entry.isDir && ` · ${formatBytes(x.entry.size)}`}
-                        {identifying && !x.version && ' · определяю…'}
+                        {identifying && !x.version && tr(' · определяю…')}
                       </span>
                     </div>
                     <div className="acts">
@@ -479,19 +480,19 @@ export function AddonsView(props: {
                       ) : (
                         x.update && (
                           <button className="btn sm" onClick={() => update(x)}>
-                            <ArrowUpCircle size={13} /> Обновить
+                            <ArrowUpCircle size={13} />{' '}{tr('Установить обновление')}
                           </button>
                         )
                       )}
                       {x.project && (
-                        <button className="btn sm ghost icon" title="Страница на Modrinth" onClick={() => api.fs.openExternal(`https://modrinth.com/project/${x.project!.slug}`)}>
+                        <button className="btn sm ghost icon" title={tr('Страница на Modrinth')} onClick={() => api.fs.openExternal(`https://modrinth.com/project/${x.project!.slug}`)}>
                           <ExternalLink size={13} />
                         </button>
                       )}
-                      <span title={x.enabled ? 'Отключить' : 'Включить'} style={{ display: 'flex', alignItems: 'center' }}>
+                      <span title={x.enabled ? tr('Отключить') : tr('Включить')} style={{ display: 'flex', alignItems: 'center' }}>
                         <Switch checked={x.enabled} onChange={() => toggle(x)} />
                       </span>
-                      <button className="btn sm ghost icon danger" title="Удалить" onClick={() => remove(x)}>
+                      <button className="btn sm ghost icon danger" title={tr('Удалить')} onClick={() => remove(x)}>
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -523,7 +524,7 @@ function AddonIcon({ url, name, size = 34 }: { url?: string; name: string; size?
 }
 
 const fmtNum = (n: number) =>
-  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} млн` : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)} тыс` : String(n)
+  n >= 1_000_000 ? tr('{0} млн', (n / 1_000_000).toFixed(1)) : n >= 1000 ? tr('{0} тыс', (n / 1000).toFixed(n >= 10_000 ? 0 : 1)) : String(n)
 
 function Catalog(props: {
   target: AddonTarget
@@ -572,18 +573,18 @@ function Catalog(props: {
       <div className="row" style={{ marginBottom: 12 }}>
         <div className="input-icon" style={{ flex: 1 }}>
           <Search size={14} />
-          <input className="input" autoFocus placeholder={`Поиск: ${TYPE_NAMES[target.type].one}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input className="input" autoFocus placeholder={tr('Поиск: {0}…', TYPE_NAMES[target.type].one)} value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <select className="select" style={{ width: 170 }} value={index} onChange={(e) => setIndex(e.target.value as typeof index)}>
-          <option value="relevance">По релевантности</option>
-          <option value="downloads">По скачиваниям</option>
-          <option value="updated">Недавно обновлённые</option>
+          <option value="relevance">{tr('По релевантности')}</option>
+          <option value="downloads">{tr('По скачиваниям')}</option>
+          <option value="updated">{tr('Недавно обновлённые')}</option>
         </select>
       </div>
       {!target.gameVersion && (
         <div className="callout warn" style={{ marginBottom: 12 }}>
           <Info size={16} />
-          <span>Версия Minecraft не определена — в выдаче могут быть несовместимые версии. Укажите её в поле выше.</span>
+          <span>{tr('Версия Minecraft не определена — в выдаче могут быть несовместимые версии. Укажите её в поле выше.')}</span>
         </div>
       )}
       {error ? (
@@ -593,11 +594,11 @@ function Catalog(props: {
         </div>
       ) : !res ? (
         <div className="empty-row" style={{ padding: 30, textAlign: 'center' }}>
-          <span className="spinner" style={{ display: 'inline-block', verticalAlign: -3 }} /> Загрузка каталога…
+          <span className="spinner" style={{ display: 'inline-block', verticalAlign: -3 }} />{' '}{tr('Загрузка каталога…')}
         </div>
       ) : res.hits.length === 0 ? (
         <div className="empty-row" style={{ padding: 30, textAlign: 'center' }}>
-          Ничего не найдено для {loaderOf(target).name}
+          {tr('Ничего не найдено для')}{' '}{loaderOf(target).name}
           {target.gameVersion ? ` ${target.gameVersion}` : ''}
         </div>
       ) : (
@@ -612,11 +613,11 @@ function Catalog(props: {
                   <div className="ab">
                     <div className="t">
                       <b title={h.title}>{h.title}</b>
-                      <span className="muted">от {h.author}</span>
+                      <span className="muted">{tr('от')}{' '}{h.author}</span>
                     </div>
                     <div className="d">{h.description}</div>
                     <div className="m muted">
-                      <Download size={12} /> {fmtNum(h.downloads)} · обновлён {formatDate(Date.parse(h.updated)).split(',')[0]}
+                      <Download size={12} /> {fmtNum(h.downloads)}{' '}{tr('· обновлён')}{' '}{formatDate(Date.parse(h.updated)).split(',')[0]}
                     </div>
                   </div>
                   <div className="a">
@@ -626,14 +627,14 @@ function Catalog(props: {
                       </button>
                     ) : inst ? (
                       <span className="badge green">
-                        <CheckCircle2 size={12} /> установлен
+                        <CheckCircle2 size={12} />{' '}{tr('установлен')}
                       </span>
                     ) : (
                       <button className="btn sm primary" onClick={() => props.onInstall(h.id, h.title)}>
-                        <Download size={13} /> Установить
+                        <Download size={13} />{' '}{tr('Установить')}
                       </button>
                     )}
-                    <button className="btn sm ghost icon" title="Открыть на Modrinth" onClick={() => api.fs.openExternal(`https://modrinth.com/project/${h.slug}`)}>
+                    <button className="btn sm ghost icon" title={tr('Открыть на Modrinth')} onClick={() => api.fs.openExternal(`https://modrinth.com/project/${h.slug}`)}>
                       <ExternalLink size={13} />
                     </button>
                   </div>
@@ -644,7 +645,7 @@ function Catalog(props: {
           {res.hits.length < res.total && (
             <div style={{ textAlign: 'center', margin: '14px 0' }}>
               <button className="btn" disabled={loading} onClick={() => setOffset(res.hits.length)}>
-                {loading && <span className="spinner" />} Показать ещё
+                {loading && <span className="spinner" />}{' '}{tr('Показать ещё')}
               </button>
             </div>
           )}

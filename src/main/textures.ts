@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { downloadFile, getJson, runTar } from './minecraft'
 import { emit } from './events'
+import { tr } from '../shared/i18n'
 
 /**
  * Иконки предметов: текстуры берутся из официального клиента Minecraft,
@@ -68,16 +69,16 @@ export async function status(): Promise<TextureStatus> {
 
 export async function install(progressId: string): Promise<TextureStatus> {
   const progress = (stage: string, done = 0, total = 0) => emit('textures:progress', { id: progressId, stage, done, total })
-  progress('Получаю список версий…')
+  progress(tr('Получаю список версий…'))
   const manifest = await getJson<{ latest: { release: string }; versions: { id: string; url: string }[] }>(
     'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'
   )
   const version = manifest.latest.release
   const entry = manifest.versions.find((v) => v.id === version)
-  if (!entry) throw new Error('Не удалось найти последнюю версию Minecraft')
+  if (!entry) throw new Error(tr('Не удалось найти последнюю версию Minecraft'))
   const meta = await getJson<any>(entry.url)
   const client = meta.downloads?.client
-  if (!client?.url) throw new Error('У версии нет клиента для загрузки')
+  if (!client?.url) throw new Error(tr('У версии нет клиента для загрузки'))
 
   const dir = root()
   const tmp = join(dir, '_tmp')
@@ -86,11 +87,11 @@ export async function install(progressId: string): Promise<TextureStatus> {
   const jar = join(tmp, 'client.jar')
   try {
     await downloadFile({ url: client.url, hash: { algo: 'sha1', value: client.sha1 } }, jar, (d, t) =>
-      progress(`Скачиваю Minecraft ${version}…`, d, t || client.size)
+      progress(tr('Скачиваю Minecraft {0}…', version), d, t || client.size)
     )
-    progress('Распаковываю текстуры…')
+    progress(tr('Распаковываю текстуры…'))
     const res = await runTar(['-xf', 'client.jar', 'assets/minecraft/textures/item', 'assets/minecraft/textures/block'], tmp)
-    if (res.code !== 0) throw new Error('Не удалось распаковать текстуры: ' + res.out.slice(0, 300))
+    if (res.code !== 0) throw new Error(tr('Не удалось распаковать текстуры: ') + res.out.slice(0, 300))
     const src = join(tmp, 'assets', 'minecraft', 'textures')
     for (const kind of ['item', 'block']) {
       await fsp.rm(join(dir, kind), { recursive: true, force: true })
@@ -101,7 +102,7 @@ export async function install(progressId: string): Promise<TextureStatus> {
     await fsp.rm(tmp, { recursive: true, force: true }).catch(() => undefined)
   }
   cache = null
-  progress('Готово')
+  progress(tr('Готово'))
   return status()
 }
 

@@ -4,6 +4,7 @@ import { api } from '../api'
 import { errText } from '../adapter'
 import { Modal, Switch, useAction } from '../components/ui'
 import { formatDate } from '../util'
+import { tr } from '@shared/i18n'
 
 interface Task {
   id?: number
@@ -26,23 +27,23 @@ interface Schedule {
 
 const PRESETS: { name: string; s: Omit<Schedule, 'id'> }[] = [
   {
-    name: 'Рестарт каждый день в 05:00',
+    name: tr('Рестарт каждый день в 05:00'),
     s: {
-      name: 'Ежедневный рестарт',
+      name: tr('Ежедневный рестарт'),
       cron: { minute: '0', hour: '5', day_of_month: '*', month: '*', day_of_week: '*' },
       active: true,
       onlyWhenOnline: true,
       tasks: [
-        { action: 'command', payload: 'say Рестарт сервера через 1 минуту!', offset: 0, continueOnFailure: true },
+        { action: 'command', payload: tr('say Рестарт сервера через 1 минуту!'), offset: 0, continueOnFailure: true },
         { action: 'command', payload: 'save-all', offset: 50, continueOnFailure: true },
         { action: 'power', payload: 'restart', offset: 10, continueOnFailure: false }
       ]
     }
   },
   {
-    name: 'Бэкап каждые 6 часов',
+    name: tr('Бэкап каждые 6 часов'),
     s: {
-      name: 'Автобэкап',
+      name: tr('Автобэкап'),
       cron: { minute: '0', hour: '*/6', day_of_month: '*', month: '*', day_of_week: '*' },
       active: true,
       onlyWhenOnline: false,
@@ -50,9 +51,9 @@ const PRESETS: { name: string; s: Omit<Schedule, 'id'> }[] = [
     }
   },
   {
-    name: 'Сохранение мира каждые 30 минут',
+    name: tr('Сохранение мира каждые 30 минут'),
     s: {
-      name: 'Автосохранение',
+      name: tr('Автосохранение'),
       cron: { minute: '*/30', hour: '*', day_of_month: '*', month: '*', day_of_week: '*' },
       active: true,
       onlyWhenOnline: true,
@@ -60,36 +61,36 @@ const PRESETS: { name: string; s: Omit<Schedule, 'id'> }[] = [
     }
   },
   {
-    name: 'Объявление каждый час',
+    name: tr('Объявление каждый час'),
     s: {
-      name: 'Объявление',
+      name: tr('Объявление'),
       cron: { minute: '0', hour: '*', day_of_month: '*', month: '*', day_of_week: '*' },
       active: true,
       onlyWhenOnline: true,
-      tasks: [{ action: 'command', payload: 'say Не забудьте вступить в наш Discord!', offset: 0, continueOnFailure: false }]
+      tasks: [{ action: 'command', payload: tr('say Не забудьте вступить в наш Discord!'), offset: 0, continueOnFailure: false }]
     }
   }
 ]
 
-const DAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
+const DAYS = [tr('вс'), tr('пн'), tr('вт'), tr('ср'), tr('чт'), tr('пт'), tr('сб')]
 
 export function describeCron(c: Schedule['cron']): string {
   const { minute: m, hour: h, day_of_month: dom, month: mon, day_of_week: dow } = c
   const pad = (x: string) => x.padStart(2, '0')
   const simple = (x: string) => /^\d+$/.test(x)
   if (dom === '*' && mon === '*' && dow === '*') {
-    if (simple(m) && simple(h)) return `Каждый день в ${pad(h)}:${pad(m)}`
-    if (simple(m) && /^\*\/\d+$/.test(h)) return `Каждые ${h.slice(2)} ч (в :${pad(m)})`
-    if (simple(m) && h === '*') return `Каждый час в :${pad(m)}`
-    if (/^\*\/\d+$/.test(m) && h === '*') return `Каждые ${m.slice(2)} мин`
-    if (m === '*' && h === '*') return 'Каждую минуту'
+    if (simple(m) && simple(h)) return tr('Каждый день в {0}:{1}', pad(h), pad(m))
+    if (simple(m) && /^\*\/\d+$/.test(h)) return tr('Каждые {0} ч (в :{1})', h.slice(2), pad(m))
+    if (simple(m) && h === '*') return tr('Каждый час в :{0}', pad(m))
+    if (/^\*\/\d+$/.test(m) && h === '*') return tr('Каждые {0} мин', m.slice(2))
+    if (m === '*' && h === '*') return tr('Каждую минуту')
   }
-  if (dom === '*' && mon === '*' && /^\d$/.test(dow) && simple(m) && simple(h)) return `Каждое ${DAYS[+dow] ?? dow} в ${pad(h)}:${pad(m)}`
+  if (dom === '*' && mon === '*' && /^\d$/.test(dow) && simple(m) && simple(h)) return tr('Каждое {0} в {1}:{2}', DAYS[+dow] ?? dow, pad(h), pad(m))
   return `${m} ${h} ${dom} ${mon} ${dow}`
 }
 
-const ACTIONS: Record<Task['action'], string> = { command: 'Команда', power: 'Питание', backup: 'Бэкап' }
-const POWER: Record<string, string> = { start: 'Запустить', stop: 'Остановить', restart: 'Перезапустить', kill: 'Убить' }
+const ACTIONS: Record<Task['action'], string> = { command: tr('Команда'), power: tr('Питание'), backup: tr('Бэкап') }
+const POWER: Record<string, string> = { start: tr('Запустить'), stop: tr('Остановить'), restart: tr('Перезапустить'), kill: tr('Убить') }
 
 function fromApi(s: any): Schedule {
   const a = s.attributes
@@ -147,12 +148,12 @@ export function SchedulesView(props: { profileId: string; visible: boolean }) {
     load()
   }
   const execute = async (s: Schedule) => {
-    await run(() => api.panel.request(pid, 'POST', `/schedules/${s.id}/execute`), 'Расписание запущено')
+    await run(() => api.panel.request(pid, 'POST', `/schedules/${s.id}/execute`), tr('Расписание запущено'))
     setTimeout(load, 1500)
   }
   const remove = async (s: Schedule) => {
-    if (!(await api.dialog.confirm({ title: 'Удаление', message: `Удалить расписание «${s.name}»?`, ok: 'Удалить', danger: true }))) return
-    await run(() => api.panel.request(pid, 'DELETE', `/schedules/${s.id}`), 'Удалено')
+    if (!(await api.dialog.confirm({ title: tr('Удаление'), message: tr('Удалить расписание «{0}»?', s.name), ok: tr('Удалить'), danger: true }))) return
+    await run(() => api.panel.request(pid, 'DELETE', `/schedules/${s.id}`), tr('Удалено'))
     load()
   }
 
@@ -160,10 +161,10 @@ export function SchedulesView(props: { profileId: string; visible: boolean }) {
     <div className="view">
       <div className="view-narrow">
         <div className="section-title">
-          <CalendarClock size={16} /> Расписания
+          <CalendarClock size={16} />{' '}{tr('Расписания')}
           <div className="spacer" />
           <button className="btn sm ghost" onClick={load}>
-            <RefreshCw size={13} /> Обновить
+            <RefreshCw size={13} />{' '}{tr('Обновить')}
           </button>
           <button
             className="btn primary sm"
@@ -171,13 +172,13 @@ export function SchedulesView(props: { profileId: string; visible: boolean }) {
               setEditing({ name: '', cron: { minute: '0', hour: '5', day_of_month: '*', month: '*', day_of_week: '*' }, active: true, onlyWhenOnline: false, tasks: [] })
             }
           >
-            <Plus size={14} /> Новое расписание
+            <Plus size={14} />{' '}{tr('Новое расписание')}
           </button>
         </div>
 
         <div className="chip-row" style={{ marginBottom: 16 }}>
           <span className="muted" style={{ alignSelf: 'center', fontSize: 12.5 }}>
-            Быстро:
+            {tr('Быстро:')}
           </span>
           {PRESETS.map((p) => (
             <button key={p.name} className="btn sm" onClick={() => setEditing(structuredClone(p.s))}>
@@ -190,30 +191,30 @@ export function SchedulesView(props: { profileId: string; visible: boolean }) {
           {error ? (
             <div className="empty-row">{error}</div>
           ) : !list ? (
-            <div className="empty-row">Загрузка…</div>
+            <div className="empty-row">{tr('Загрузка…')}</div>
           ) : list.length === 0 ? (
-            <div className="empty-row">Расписаний нет — создайте, например, ежедневный рестарт.</div>
+            <div className="empty-row">{tr('Расписаний нет — создайте, например, ежедневный рестарт.')}</div>
           ) : (
             list.map((s) => (
               <div className="r" key={s.id}>
                 <Switch checked={s.active} onChange={() => toggle(s)} />
                 <div className="main">
                   <b>
-                    {s.name} {s.processing && <span className="badge warn">выполняется</span>}
+                    {s.name} {s.processing && <span className="badge warn">{tr('выполняется')}</span>}
                   </b>
                   <span>
-                    {describeCron(s.cron)} · {s.tasks.length ? s.tasks.map((t) => (t.action === 'power' ? POWER[t.payload] ?? t.payload : ACTIONS[t.action])).join(' → ') : 'нет задач'}
-                    {s.active && s.nextRun ? ` · следующий запуск ${formatDate(s.nextRun)}` : ''}
+                    {describeCron(s.cron)} · {s.tasks.length ? s.tasks.map((t) => (t.action === 'power' ? POWER[t.payload] ?? t.payload : ACTIONS[t.action])).join(' → ') : tr('нет задач')}
+                    {s.active && s.nextRun ? tr(' · следующий запуск {0}', formatDate(s.nextRun)) : ''}
                   </span>
                 </div>
                 <div className="acts">
                   <button className="btn sm" onClick={() => execute(s)} disabled={!s.tasks.length}>
-                    <Play size={13} /> Запустить сейчас
+                    <Play size={13} />{' '}{tr('Запустить сейчас')}
                   </button>
-                  <button className="btn sm icon" title="Изменить" onClick={() => setEditing(structuredClone(s))}>
+                  <button className="btn sm icon" title={tr('Изменить')} onClick={() => setEditing(structuredClone(s))}>
                     <Pencil size={14} />
                   </button>
-                  <button className="btn sm icon danger" title="Удалить" onClick={() => remove(s)}>
+                  <button className="btn sm icon danger" title={tr('Удалить')} onClick={() => remove(s)}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -261,7 +262,7 @@ function ScheduleModal(props: { profileId: string; schedule: Schedule; original?
         else await api.panel.request(pid, 'POST', `/schedules/${id}/tasks`, taskBody(t))
       }
       return true
-    }, 'Расписание сохранено')
+    }, tr('Расписание сохранено'))
     setBusy(false)
     if (ok) props.onSaved()
   }
@@ -269,37 +270,37 @@ function ScheduleModal(props: { profileId: string; schedule: Schedule; original?
   return (
     <Modal
       size="wide"
-      title={s.id ? 'Изменить расписание' : 'Новое расписание'}
+      title={s.id ? tr('Изменить расписание') : tr('Новое расписание')}
       onClose={props.onClose}
       closeOnBackdrop={false}
       footer={
         <>
           <button className="btn" onClick={props.onClose}>
-            Отмена
+            {tr('Отмена')}
           </button>
           <button className="btn primary" disabled={busy || !s.name.trim()} onClick={save}>
-            {busy && <span className="spinner" />} Сохранить
+            {busy && <span className="spinner" />}{' '}{tr('Сохранить')}
           </button>
         </>
       }
     >
       <div className="modal-body stack">
         <div className="field">
-          <label>Название</label>
+          <label>{tr('Название')}</label>
           <input className="input" value={s.name} onChange={(e) => setS({ ...s, name: e.target.value })} autoFocus />
         </div>
         <div className="field">
           <label>
-            Когда запускать (cron, время сервера) — <span style={{ color: 'var(--accent)' }}>{describeCron(s.cron)}</span>
+            {tr('Когда запускать (cron, время сервера) —')}{' '}<span style={{ color: 'var(--accent)' }}>{describeCron(s.cron)}</span>
           </label>
           <div className="cron">
             {(
               [
-                ['minute', 'Минута'],
-                ['hour', 'Час'],
-                ['day_of_month', 'День месяца'],
-                ['month', 'Месяц'],
-                ['day_of_week', 'День недели (0=вс)']
+                ['minute', tr('Минута')],
+                ['hour', tr('Час')],
+                ['day_of_month', tr('День месяца')],
+                ['month', tr('Месяц')],
+                ['day_of_week', tr('День недели (0=вс)')]
               ] as const
             ).map(([k, l]) => (
               <div className="field" key={k}>
@@ -308,29 +309,29 @@ function ScheduleModal(props: { profileId: string; schedule: Schedule; original?
               </div>
             ))}
           </div>
-          <span className="hint">* — каждый, */15 — каждые 15, 1-5 — диапазон, 1,3,5 — список</span>
+          <span className="hint">{tr('* — каждый, */15 — каждые 15, 1-5 — диапазон, 1,3,5 — список')}</span>
         </div>
         <div className="row">
           <label className="check" style={{ flex: 1 }}>
             <input type="checkbox" checked={s.active} onChange={(e) => setS({ ...s, active: e.target.checked })} />
-            Включено
+            {tr('Включено')}
           </label>
           <label className="check" style={{ flex: 2 }}>
             <input type="checkbox" checked={s.onlyWhenOnline} onChange={(e) => setS({ ...s, onlyWhenOnline: e.target.checked })} />
-            Только когда сервер запущен
+            {tr('Только когда сервер запущен')}
           </label>
         </div>
 
         <div className="field">
-          <label>Задачи (выполняются по очереди; задержка — секунды после предыдущей, до 900)</label>
+          <label>{tr('Задачи (выполняются по очереди; задержка — секунды после предыдущей, до 900)')}</label>
           <div className="stack" style={{ gap: 8 }}>
             {s.tasks.map((t, i) => (
               <div className="task" key={i}>
                 <span className="n">{i + 1}</span>
                 <select className="select" value={t.action} onChange={(e) => setTask(i, { action: e.target.value as Task['action'], payload: e.target.value === 'power' ? 'restart' : '' })}>
-                  <option value="command">Команда</option>
-                  <option value="power">Питание</option>
-                  <option value="backup">Бэкап</option>
+                  <option value="command">{tr('Команда')}</option>
+                  <option value="power">{tr('Питание')}</option>
+                  <option value="backup">{tr('Бэкап')}</option>
                 </select>
                 {t.action === 'power' ? (
                   <select className="select" value={t.payload} onChange={(e) => setTask(i, { payload: e.target.value })}>
@@ -343,7 +344,7 @@ function ScheduleModal(props: { profileId: string; schedule: Schedule; original?
                 ) : (
                   <input
                     className="input mono"
-                    placeholder={t.action === 'command' ? 'say Привет!' : 'Исключить файлы (необязательно)'}
+                    placeholder={t.action === 'command' ? tr('say Привет!') : tr('Исключить файлы (необязательно)')}
                     value={t.payload}
                     onChange={(e) => setTask(i, { payload: e.target.value })}
                   />
@@ -353,7 +354,7 @@ function ScheduleModal(props: { profileId: string; schedule: Schedule; original?
                   type="number"
                   min={0}
                   max={900}
-                  title="Задержка, сек"
+                  title={tr('Задержка, сек')}
                   value={t.offset}
                   onChange={(e) => setTask(i, { offset: Math.max(0, Math.min(900, Number(e.target.value))) })}
                 />
@@ -367,7 +368,7 @@ function ScheduleModal(props: { profileId: string; schedule: Schedule; original?
               style={{ alignSelf: 'flex-start' }}
               onClick={() => setS({ ...s, tasks: [...s.tasks, { action: 'command', payload: '', offset: s.tasks.length ? 5 : 0, continueOnFailure: false }] })}
             >
-              <Plus size={13} /> Добавить задачу
+              <Plus size={13} />{' '}{tr('Добавить задачу')}
             </button>
           </div>
         </div>

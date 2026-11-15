@@ -476,3 +476,10 @@ a.link:hover { text-decoration: underline; }
 .sb-addr svg { color: var(--muted); }
 .sb-power { display: flex; gap: 6px; }
 input[type="checkbox"] { accent-color: var(--accent); }
+
+/* переключатель языка */
+.lang-switch { display: flex; align-items: center; gap: 2px; margin-bottom: 8px; color: var(--muted); }
+.lang-switch svg { margin-right: 4px; }
+.lang-switch button { border: 1px solid transparent; background: none; color: var(--muted); font-size: 11.5px; font-weight: 650; padding: 2px 7px; border-radius: 6px; cursor: pointer; }
+.lang-switch button:hover { color: var(--text); }
+.lang-switch button.on { color: var(--accent); border-color: rgba(52,211,153,.35); background: var(--accent-soft); }

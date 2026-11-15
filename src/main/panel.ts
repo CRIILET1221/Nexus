@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import type { PanelLink, PanelState, PanelStats } from '../shared/types'
 import { profiles } from './store'
 import { emit } from './events'
+import { tr } from '../shared/i18n'
 
 export function normalizePanelUrl(url: string) {
   let u = url.trim().replace(/\/+$/, '')
@@ -13,14 +14,22 @@ export function normalizePanelUrl(url: string) {
   try {
     return new URL(u).origin
   } catch {
-    throw new Error('Некорректный адрес панели')
+    throw new Error(tr('Некорректный адрес панели'))
   }
+}
+
+/** Ошибка, которую бессмысленно повторять (неверный ключ, адрес, ID сервера) */
+function fatal(message: string) {
+  const e = new Error(message) as Error & { fatal?: boolean }
+  e.fatal = true
+  return e
 }
 
 async function panelApi<T = any>(base: string, key: string, path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
     res = await fetch(`${base}/api/client${path}`, {
+      signal: AbortSignal.timeout(20_000),
       ...init,
       headers: {
         Authorization: `Bearer ${key}`,
@@ -29,19 +38,20 @@ async function panelApi<T = any>(base: string, key: string, path: string, init?:
         ...(init?.headers ?? {})
       }
     })
-  } catch {
-    throw new Error(`Панель ${new URL(base).host} недоступна — проверьте адрес`)
+  } catch (e) {
+    if ((e as Error)?.name === 'TimeoutError') throw new Error(tr('Панель {0} не отвечает (больше 20 секунд)', new URL(base).host))
+    throw new Error(tr('Панель {0} недоступна — проверьте адрес', new URL(base).host))
   }
-  if (res.status === 401 || res.status === 403) throw new Error('API-ключ не подходит или у него нет доступа к этому серверу')
-  if (res.status === 404) throw new Error('Сервер не найден в панели — проверьте ID сервера')
-  if (res.status === 409) throw new Error('Сервер сейчас устанавливается или перемещается — попробуйте позже')
-  if (!res.ok) throw new Error(`Панель ответила ошибкой ${res.status}`)
+  if (res.status === 401 || res.status === 403) throw fatal(tr('API-ключ не подходит или у него нет доступа к этому серверу'))
+  if (res.status === 404) throw fatal(tr('Сервер не найден в панели — проверьте ID сервера'))
+  if (res.status === 409) throw new Error(tr('Сервер сейчас устанавливается или перемещается — попробуйте позже'))
+  if (!res.ok) throw new Error(tr('Панель ответила ошибкой {0}', res.status))
   if (res.status === 204) return undefined as T
   const text = await res.text()
   try {
     return JSON.parse(text) as T
   } catch {
-    throw new Error('Это не похоже на панель Pterodactyl — ответ не JSON. Проверьте адрес панели.')
+    throw fatal(tr('Это не похоже на панель Pterodactyl — ответ не JSON. Проверьте адрес панели.'))
   }
 }
 
@@ -80,7 +90,7 @@ export async function discover(url: string, key: string): Promise<{ panelUrl: st
   const k = key.trim()
   const account = await panelApi<any>(base, k, '/account')
   const username: string = account?.attributes?.username
-  if (!username) throw new Error('Панель не вернула имя пользователя')
+  if (!username) throw new Error(tr('Панель не вернула имя пользователя'))
   const panelHost = new URL(base).hostname
   const servers: DiscoveredServer[] = []
   for (let page = 1; page <= 10; page++) {
@@ -109,7 +119,7 @@ export async function discover(url: string, key: string): Promise<{ panelUrl: st
 function creds(profileId: string) {
   const p = profiles.get(profileId)
   const key = profiles.panelKey(profileId)
-  if (!p?.panelUrl || !p.panelServerId || !key) throw new Error('Консоль панели не настроена для этого подключения')
+  if (!p?.panelUrl || !p.panelServerId || !key) throw fatal(tr('Консоль панели не настроена для этого подключения'))
   return { base: normalizePanelUrl(p.panelUrl), key, sid: p.panelServerId }
 }
 
@@ -132,7 +142,7 @@ export async function downloadUrl(url: string, dest: string, progressId: string)
   const { createWriteStream } = await import('node:fs')
   const { rename, rm } = await import('node:fs/promises')
   const res = await fetch(url)
-  if (!res.ok || !res.body) throw new Error(`Не удалось скачать (HTTP ${res.status})`)
+  if (!res.ok || !res.body) throw new Error(tr('Не удалось скачать (HTTP {0})', res.status))
   const total = Number(res.headers.get('content-length') ?? 0)
   const tmp = dest + '.part'
   const out = createWriteStream(tmp)
@@ -195,6 +205,7 @@ async function fetchToken(c: Console) {
 async function connect(c: Console) {
   if (c.closed) return
   link(c.id, c.retry ? 'reconnecting' : 'connecting')
+  out(c.id, tr('\x1b[90m[Nexus] Получаю доступ к консоли у панели…\x1b[0m\r\n'))
   let token: string, socket: string, origin: string
   try {
     ;({ token, socket, origin } = await fetchToken(c))
@@ -202,20 +213,29 @@ async function connect(c: Console) {
     const msg = e instanceof Error ? e.message : String(e)
     out(c.id, `\x1b[31m[Nexus] ${msg}\x1b[0m\r\n`)
     // ошибки ключа/ID повторять бессмысленно
-    if (/API-ключ|не найден|не настроена|не похоже/.test(msg)) {
+    if ((e as { fatal?: boolean })?.fatal) {
       link(c.id, 'closed', msg)
       return
     }
     return scheduleReconnect(c)
   }
 
-  const ws = new WebSocket(socket, { origin })
+  out(c.id, tr('\x1b[90m[Nexus] Подключаюсь к серверу консоли {0}…\x1b[0m\r\n', new URL(socket).host))
+  // handshakeTimeout — иначе при недоступном порте подключение может висеть бесконечно
+  const ws = new WebSocket(socket, { origin, handshakeTimeout: 15_000 })
   c.ws = ws
+  let authTimer: ReturnType<typeof setTimeout> | undefined
   const send = (event: string, args: unknown[] = []) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event, args }))
   }
 
-  ws.on('open', () => send('auth', [token]))
+  ws.on('open', () => {
+    send('auth', [token])
+    authTimer = setTimeout(() => {
+      out(c.id, tr('\x1b[31m[Nexus] Сервер консоли не подтвердил вход за 15 секунд\x1b[0m\r\n'))
+      ws.terminate()
+    }, 15_000)
+  })
   ws.on('message', async (raw) => {
     let msg: { event: string; args?: any[] }
     try {
@@ -226,6 +246,7 @@ async function connect(c: Console) {
     const a = msg.args ?? []
     switch (msg.event) {
       case 'auth success':
+        clearTimeout(authTimer)
         c.retry = 0
         link(c.id, 'connected')
         send('send logs', [null])
@@ -236,11 +257,11 @@ async function connect(c: Console) {
         out(c.id, String(a[0] ?? '') + '\r\n')
         break
       case 'daemon message':
-        out(c.id, `\x1b[33m[Панель] ${a[0] ?? ''}\x1b[0m\r\n`)
+        out(c.id, tr('\x1b[33m[Панель] {0}\x1b[0m\r\n', a[0] ?? ''))
         break
       case 'daemon error':
       case 'jwt error':
-        out(c.id, `\x1b[31m[Панель] ${a[0] ?? 'ошибка'}\x1b[0m\r\n`)
+        out(c.id, tr('\x1b[31m[Панель] {0}\x1b[0m\r\n', a[0] ?? 'ошибка'))
         break
       case 'status':
         emit('panel:state', { id: c.id, state: a[0] as PanelState })
@@ -275,10 +296,24 @@ async function connect(c: Console) {
     }
   })
   ws.on('unexpected-response', (_req, res) => {
-    out(c.id, `\x1b[31m[Nexus] Сервер консоли отклонил подключение (HTTP ${res.statusCode})\x1b[0m\r\n`)
+    out(c.id, tr('\x1b[31m[Nexus] Сервер консоли отклонил подключение (HTTP {0})\x1b[0m\r\n', res.statusCode))
   })
-  ws.on('error', (e) => out(c.id, `\x1b[31m[Nexus] ${e.message}\x1b[0m\r\n`))
+  ws.on('error', (e: Error & { code?: string }) => {
+    const host = new URL(socket).host
+    const m = e.message || ''
+    const text = /handshake has timed out/i.test(m) || e.code === 'ETIMEDOUT'
+      ? tr('Сервер консоли {0} не отвечает — порт закрыт или заблокирован сетью', host)
+      : e.code === 'ECONNREFUSED'
+        ? tr('Сервер консоли {0} отклонил соединение — возможно, хостинг сейчас недоступен', host)
+        : e.code === 'ENOTFOUND'
+          ? tr('Адрес сервера консоли {0} не найден', host)
+          : /certificate|self.signed|CERT_/i.test(m + (e.code ?? ''))
+            ? tr('Ошибка сертификата сервера консоли {0}: {1}', host, m)
+            : m
+    out(c.id, `\x1b[31m[Nexus] ${text}\x1b[0m\r\n`)
+  })
   ws.on('close', () => {
+    clearTimeout(authTimer)
     if (c.ws === ws) c.ws = undefined
     if (!c.closed) scheduleReconnect(c)
   })
@@ -289,12 +324,13 @@ function scheduleReconnect(c: Console) {
   c.retry++
   const delay = Math.min(30_000, 1500 * 2 ** Math.min(c.retry, 5))
   link(c.id, 'reconnecting')
+  out(c.id, tr('\x1b[90m[Nexus] Повторная попытка через {0} с…\x1b[0m\r\n', Math.round(delay / 1000)))
   c.timer = setTimeout(() => connect(c), delay)
 }
 
 function wsSend(id: string, event: string, args: unknown[]) {
   const c = consoles.get(id)
-  if (!c?.ws || c.ws.readyState !== WebSocket.OPEN) throw new Error('Нет связи с консолью сервера')
+  if (!c?.ws || c.ws.readyState !== WebSocket.OPEN) throw new Error(tr('Нет связи с консолью сервера'))
   c.ws.send(JSON.stringify({ event, args }))
 }
 

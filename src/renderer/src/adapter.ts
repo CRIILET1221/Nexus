@@ -1,3 +1,4 @@
+import { NOT_FOUND_RE } from '@shared/i18n'
 import { useCallback, useEffect, useState } from 'react'
 import type { PingResult } from '@shared/types'
 import { api } from './api'
@@ -31,7 +32,7 @@ export interface DirEntry {
   mtime: number
 }
 
-const NOT_FOUND = /no such file|not exist|не найден|ENOENT/i
+const NOT_FOUND = NOT_FOUND_RE
 /** null вместо ошибки «нет такого файла» */
 export async function orNull<T>(p: Promise<T>): Promise<T | null> {
   try {

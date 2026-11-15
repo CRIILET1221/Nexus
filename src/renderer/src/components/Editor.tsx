@@ -6,6 +6,7 @@ import jsonWorker from 'monaco-editor/language/json/json.worker.js?worker'
 import { FileCode2, Save } from 'lucide-react'
 import { Modal, useToast } from './ui'
 import { languageFor } from '../util'
+import { tr } from '@shared/i18n'
 
 // Monaco работает локально, без CDN
 ;(self as any).MonacoEnvironment = {
@@ -60,7 +61,7 @@ export function EditorModal(props: {
     try {
       await props.save(value.current)
       setDirty(false)
-      toast('Файл сохранён', 'success')
+      toast(tr('Файл сохранён'), 'success')
     } catch (e) {
       toast(e instanceof Error ? e.message : String(e), 'error')
     } finally {
@@ -72,7 +73,7 @@ export function EditorModal(props: {
 
   const close = async () => {
     if (dirty) {
-      const ok = window.confirm('Есть несохранённые изменения. Закрыть без сохранения?')
+      const ok = window.confirm(tr('Есть несохранённые изменения. Закрыть без сохранения?'))
       if (!ok) return
     }
     props.onClose()
@@ -86,7 +87,7 @@ export function EditorModal(props: {
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {props.title}
-          {dirty && <span className="dirty" title="Есть несохранённые изменения" />}
+          {dirty && <span className="dirty" title={tr('Есть несохранённые изменения')} />}
           <span className="muted mono" style={{ fontSize: 12, fontWeight: 400 }}>
             {props.path}
           </span>
@@ -96,14 +97,14 @@ export function EditorModal(props: {
       footer={
         <>
           <span className="muted" style={{ marginRight: 'auto', fontSize: 12 }}>
-            Ctrl+S — сохранить · Esc — закрыть
+            {tr('Ctrl+S — сохранить · Esc — закрыть')}
           </span>
           <button className="btn" onClick={close}>
-            Закрыть
+            {tr('Закрыть')}
           </button>
           <button className="btn primary" disabled={!dirty || saving || content === null} onClick={doSave}>
             {saving ? <span className="spinner" /> : <Save size={15} />}
-            Сохранить
+            {tr('Сохранить')}
           </button>
         </>
       }
@@ -111,7 +112,7 @@ export function EditorModal(props: {
       <div className="editor-wrap" style={{ marginTop: 12 }}>
         {error ? (
           <div className="empty-state">
-            <h3>Не удалось открыть файл</h3>
+            <h3>{tr('Не удалось открыть файл')}</h3>
             <div>{error}</div>
           </div>
         ) : content === null ? (

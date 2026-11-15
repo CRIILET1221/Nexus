@@ -2,6 +2,7 @@
 // Даёт онлайн, максимум, часть списка игроков, версию и MOTD без команд в консоли.
 import { Socket } from 'node:net'
 import type { PingResult } from '../shared/types'
+import { tr } from '../shared/i18n'
 
 function varint(n: number): Buffer {
   const bytes: number[] = []
@@ -48,9 +49,9 @@ export function ping(host: string, port: number, timeoutMs = 5000): Promise<Ping
       sock.destroy()
       reject(new Error(msg))
     }
-    sock.setTimeout(timeoutMs, () => fail('Сервер не ответил (возможно, выключен или порт закрыт)'))
+    sock.setTimeout(timeoutMs, () => fail(tr('Сервер не ответил (возможно, выключен или порт закрыт)')))
     sock.once('error', (e: NodeJS.ErrnoException) =>
-      fail(e.code === 'ECONNREFUSED' ? 'Сервер выключен или порт закрыт' : e.code === 'ENOTFOUND' ? 'Адрес не найден' : e.message)
+      fail(e.code === 'ECONNREFUSED' ? tr('Сервер выключен или порт закрыт') : e.code === 'ENOTFOUND' ? tr('Адрес не найден') : e.message)
     )
     sock.connect(port, host, () => {
       const hostBuf = Buffer.from(host, 'utf8')
@@ -77,7 +78,7 @@ export function ping(host: string, port: number, timeoutMs = 5000): Promise<Ping
           latency: Date.now() - started
         })
       } catch (e) {
-        fail('Некорректный ответ сервера')
+        fail(tr('Некорректный ответ сервера'))
       }
     })
   })

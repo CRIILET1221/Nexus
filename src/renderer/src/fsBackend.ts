@@ -1,5 +1,6 @@
 import type { RemoteEntry } from '@shared/types'
 import { api } from './api'
+import { tr } from '@shared/i18n'
 
 /**
  * Источник файлов для файлового менеджера: SFTP хостинга или папка локального сервера.
@@ -52,7 +53,7 @@ export function sftpBackend(sessionId: string, home: string, panelProfileId: str
           compress: (root, files) =>
             api.panel.request<any>(panelProfileId, 'POST', '/files/compress', { root, files }).then((r) => r?.attributes?.name as string | undefined),
           pull: (url, directory) => api.panel.request(panelProfileId, 'POST', '/files/pull', { url, directory }).then(() => undefined),
-          hint: 'Архивы распаковываются прямо на сервере — ПКМ по файлу'
+          hint: tr('Архивы распаковываются прямо на сервере — ПКМ по файлу')
         }
       : undefined
   }
@@ -76,7 +77,7 @@ export function localBackend(serverId: string): FsBackend {
       decompress: (dir, name) => api.lfs.decompress(serverId, dir, name),
       compress: (dir, names) => api.lfs.compress(serverId, dir, names),
       pull: (url, dir) => api.lfs.pull(serverId, dir, url).then(() => undefined),
-      hint: 'Удалённые файлы попадают в корзину Windows'
+      hint: tr('Удалённые файлы попадают в корзину Windows')
     },
     reveal: (p) => api.lfs.reveal(serverId, p)
   }

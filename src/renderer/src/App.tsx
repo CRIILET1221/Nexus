@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Boxes, Plug, X, Terminal as TermIcon } from 'lucide-react'
+import { Boxes, Plug, X, Languages, Terminal as TermIcon } from 'lucide-react'
+import { LANGS, getLang } from '@shared/i18n'
+import { changeLang } from './langInit'
 import type { ConnectionProfile, ServerRuntime, SessionInfo } from '@shared/types'
 import { api } from './api'
 import { PromptModal, useToast } from './components/ui'
 import { Connections } from './views/Connections'
 import { SessionView } from './views/SessionView'
 import { LocalServers } from './views/LocalServers'
+import { tr } from '@shared/i18n'
 
 type View = { kind: 'connections' } | { kind: 'local' } | { kind: 'session'; id: string }
 
@@ -13,7 +16,17 @@ export function App() {
   const toast = useToast()
   const [profiles, setProfiles] = useState<ConnectionProfile[]>([])
   const [sessions, setSessions] = useState<SessionInfo[]>([])
-  const [view, setView] = useState<View>({ kind: 'connections' })
+  const [view, setView] = useState<View>(() => {
+    // после смены языка возвращаемся на тот же экран
+    try {
+      const v = sessionStorage.getItem('nexus.view')
+      sessionStorage.removeItem('nexus.view')
+      if (v) return JSON.parse(v) as View
+    } catch {
+      /* нет сохранённого экрана */
+    }
+    return { kind: 'connections' }
+  })
   const [connecting, setConnecting] = useState<string | null>(null)
   const [askPassword, setAskPassword] = useState<ConnectionProfile | null>(null)
   const [savePassword, setSavePassword] = useState(true)
@@ -30,6 +43,8 @@ export function App() {
   useEffect(() => {
     reloadProfiles()
     api.app.version().then(setVersion).catch(() => undefined)
+    // подключения, открытые до перезагрузки интерфейса
+    api.ssh.list().then((list) => list.length && setSessions(list)).catch(() => undefined)
     api.mc.runtimes().then((r) => setRunningCount(r.length))
     const offStatus = api.on('server:status', () => api.mc.runtimes().then((r: ServerRuntime[]) => setRunningCount(r.length)))
     const offClosed = api.on('session:closed', ({ id }: { id: string }) => {
@@ -44,7 +59,7 @@ export function App() {
         const prof = profilesRef.current.find((p) => p.id === lost!.profileId)
         // пароль сохранён — тихо переподключаемся
         if (prof && (prof.hasSecret || prof.authType === 'key')) {
-          toast(`Соединение с «${lost.name}» разорвано — переподключаюсь…`, 'info')
+          toast(tr('Соединение с «{0}» разорвано — переподключаюсь…', lost.name), 'info')
           setReconnecting((r) => ({ ...r, [id]: lost!.name }))
           const done = () =>
             setReconnecting((r) => {
@@ -58,7 +73,7 @@ export function App() {
               const s = await api.ssh.connect(prof.id)
               setSessions((list) => [...list, s])
               if (wasOpen && viewRef.current.kind === 'session' && viewRef.current.id === id) setView({ kind: 'session', id: s.id })
-              toast(`Соединение с «${lost.name}» восстановлено`, 'success')
+              toast(tr('Соединение с «{0}» восстановлено', lost.name), 'success')
               done()
               return
             } catch {
@@ -71,7 +86,7 @@ export function App() {
           delete n[id]
           return n
         })
-        toast(`Соединение с «${lost.name}» разорвано`, 'error')
+        toast(tr('Соединение с «{0}» разорвано', lost.name), 'error')
         if (viewRef.current.kind === 'session' && viewRef.current.id === id) setView({ kind: 'connections' })
       }, 0)
     })
@@ -118,7 +133,7 @@ export function App() {
 
   const activeSession = view.kind === 'session' ? sessions.find((s) => s.id === view.id) : undefined
   const subtitle =
-    view.kind === 'connections' ? 'Подключения' : view.kind === 'local' ? 'Локальные серверы' : activeSession?.host ?? ''
+    view.kind === 'connections' ? tr('Подключения') : view.kind === 'local' ? tr('Локальные серверы') : activeSession?.host ?? ''
 
   return (
     <div className="app">
@@ -131,17 +146,17 @@ export function App() {
         <aside className="sidebar">
           <button className={`nav-item ${view.kind === 'connections' ? 'active' : ''}`} onClick={() => setView({ kind: 'connections' })}>
             <Plug size={17} />
-            <span className="grow">Подключения</span>
+            <span className="grow">{tr('Подключения')}</span>
             {profiles.length > 0 && <span className="badge">{profiles.length}</span>}
           </button>
           <button className={`nav-item ${view.kind === 'local' ? 'active' : ''}`} onClick={() => setView({ kind: 'local' })}>
             <Boxes size={17} />
-            <span className="grow">Локальные серверы</span>
-            {runningCount > 0 && <span className="badge green">{runningCount} онлайн</span>}
+            <span className="grow">{tr('Локальные серверы')}</span>
+            {runningCount > 0 && <span className="badge green">{runningCount}{' '}{tr('онлайн')}</span>}
           </button>
 
-          <div className="section">Активные сессии</div>
-          {sessions.length === 0 && <div className="empty">Нет открытых подключений</div>}
+          <div className="section">{tr('Активные сессии')}</div>
+          {sessions.length === 0 && <div className="empty">{tr('Нет открытых подключений')}</div>}
           {sessions.map((s) => (
             <div
               key={s.id}
@@ -156,7 +171,7 @@ export function App() {
               </div>
               <button
                 className="btn ghost sm icon x"
-                title="Отключиться"
+                title={tr('Отключиться')}
                 onClick={(e) => {
                   e.stopPropagation()
                   disconnect(s.id)
@@ -167,7 +182,15 @@ export function App() {
             </div>
           ))}
           <div className="footer">
-            <TermIcon size={12} style={{ verticalAlign: -2 }} /> Nexus {version} · SFTP / SSH / Minecraft
+            <div className="lang-switch" title={tr('Язык интерфейса')}>
+              <Languages size={13} />
+              {LANGS.map((l) => (
+                <button key={l.id} className={getLang() === l.id ? 'on' : ''} onClick={() => getLang() !== l.id && changeLang(l.id, view)}>
+                  {l.short}
+                </button>
+              ))}
+            </div>
+            <TermIcon size={12} style={{ verticalAlign: -2 }} /> Nexus {version}
           </div>
         </aside>
 
@@ -181,8 +204,8 @@ export function App() {
           {view.kind === 'session' && reconnecting[view.id] && (
             <div className="empty-state" style={{ position: 'absolute', inset: 0 }}>
               <span className="spinner" style={{ width: 26, height: 26 }} />
-              <h3>Переподключение к «{reconnecting[view.id]}»…</h3>
-              <div>Связь с сервером прервалась. Nexus пробует восстановить соединение.</div>
+              <h3>{tr('Переподключение к «')}{reconnecting[view.id]}»…</h3>
+              <div>{tr('Связь с сервером прервалась. Nexus пробует восстановить соединение.')}</div>
             </div>
           )}
           {sessions.map((s) => (
@@ -208,17 +231,17 @@ export function App() {
 
       {askPassword && (
         <PromptModal
-          title={`Пароль для ${askPassword.username}@${askPassword.host}`}
-          label="Пароль"
+          title={tr('Пароль для {0}@{1}', askPassword.username, askPassword.host)}
+          label={tr('Пароль')}
           password
-          okText="Подключиться"
+          okText={tr('Подключиться')}
           extra={
             <label className="check">
               <input type="checkbox" checked={savePassword} onChange={(e) => setSavePassword(e.target.checked)} />
               <span>
-                Сохранить пароль
+                {tr('Сохранить пароль')}
                 <div className="muted" style={{ fontSize: 12 }}>
-                  Хранится зашифрованным средствами Windows (DPAPI)
+                  {tr('Хранится зашифрованным средствами Windows (DPAPI)')}
                 </div>
               </span>
             </label>

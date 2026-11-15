@@ -3,6 +3,7 @@ import { Plus, RotateCcw, SquareTerminal, X } from 'lucide-react'
 import type { Terminal } from '@xterm/xterm'
 import { api } from '../api'
 import { XTerm } from '../components/XTerm'
+import { tr } from '@shared/i18n'
 
 interface Tab {
   key: number
@@ -14,12 +15,12 @@ interface Tab {
 let counter = 1
 
 export function ShellConsole(props: { sessionId: string; visible: boolean }) {
-  const [tabs, setTabs] = useState<Tab[]>(() => [{ key: counter++, title: 'Терминал 1', exited: false, gen: 0 }])
+  const [tabs, setTabs] = useState<Tab[]>(() => [{ key: counter++, title: tr('Терминал 1'), exited: false, gen: 0 }])
   const [active, setActive] = useState(tabs[0].key)
 
   const add = () => {
     const key = counter++
-    setTabs((t) => [...t, { key, title: `Терминал ${t.length + 1}`, exited: false, gen: 0 }])
+    setTabs((t) => [...t, { key, title: tr('Терминал {0}', t.length + 1), exited: false, gen: 0 }])
     setActive(key)
   }
   const close = (key: number) => {
@@ -28,7 +29,7 @@ export function ShellConsole(props: { sessionId: string; visible: boolean }) {
       if (next.length === 0) {
         const k = counter++
         setActive(k)
-        return [{ key: k, title: 'Терминал 1', exited: false, gen: 0 }]
+        return [{ key: k, title: tr('Терминал 1'), exited: false, gen: 0 }]
       }
       if (key === active) setActive(next[next.length - 1].key)
       return next
@@ -57,7 +58,7 @@ export function ShellConsole(props: { sessionId: string; visible: boolean }) {
           ))}
         </div>
         <button className="btn ghost sm" onClick={add}>
-          <Plus size={14} /> Новая вкладка
+          <Plus size={14} />{' '}{tr('Новая вкладка')}
         </button>
       </div>
       <div className="term-body">
@@ -69,9 +70,9 @@ export function ShellConsole(props: { sessionId: string; visible: boolean }) {
             />
             {t.exited && (
               <div className="term-closed">
-                <span className="muted">Сеанс завершён</span>
+                <span className="muted">{tr('Сеанс завершён')}</span>
                 <button className="btn sm primary" onClick={() => update(t.key, { exited: false, gen: t.gen + 1 })}>
-                  <RotateCcw size={13} /> Переподключить
+                  <RotateCcw size={13} />{' '}{tr('Переподключить')}
                 </button>
               </div>
             )}
@@ -93,12 +94,12 @@ function attachShell(term: Terminal, sessionId: string, onExit: () => void) {
   })
   const offExit = api.on('shell:exit', ({ id }: { id: string }) => {
     if (id === shellId) {
-      term.write('\r\n\x1b[90m[соединение закрыто]\x1b[0m\r\n')
+      term.write(tr('\r\n\x1b[90m[соединение закрыто]\x1b[0m\r\n'))
       onExit()
     }
   })
 
-  term.write('\x1b[90mОткрываю SSH-консоль…\x1b[0m\r\n')
+  term.write(tr('\x1b[90mОткрываю SSH-консоль…\x1b[0m\r\n'))
   api.shell
     .open(sessionId, term.cols, term.rows)
     .then((id) => {
@@ -111,7 +112,7 @@ function attachShell(term: Terminal, sessionId: string, onExit: () => void) {
       pending.length = 0
     })
     .catch((e: Error) => {
-      term.write(`\x1b[31mНе удалось открыть SSH-терминал.\x1b[0m\r\n${e.message}\r\n`)
+      term.write(tr('\x1b[31mНе удалось открыть SSH-терминал.\x1b[0m\r\n{0}\r\n', e.message))
       onExit()
     })
 

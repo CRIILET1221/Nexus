@@ -3,6 +3,7 @@ import { KeyRound, Lock, Pencil, Plug, Plus, Server, Trash2, FolderOpen, Zap, Ex
 import type { ConnectionProfile, ProfileInput } from '@shared/types'
 import { api } from '../api'
 import { Modal, useAction } from '../components/ui'
+import { tr } from '@shared/i18n'
 
 const COLORS = ['#34d399', '#60a5fa', '#c084fc', '#f472b6', '#fbbf24', '#fb923c', '#f87171', '#22d3ee']
 
@@ -18,13 +19,13 @@ export function Connections(props: {
 
   const remove = async (p: ConnectionProfile) => {
     const ok = await api.dialog.confirm({
-      title: 'Удаление',
-      message: `Удалить подключение «${p.name}»?`,
-      detail: 'Сохранённый пароль тоже будет удалён.',
-      ok: 'Удалить',
+      title: tr('Удаление'),
+      message: tr('Удалить подключение «{0}»?', p.name),
+      detail: tr('Сохранённый пароль тоже будет удалён.'),
+      ok: tr('Удалить'),
       danger: true
     })
-    if (ok) await run(() => api.profiles.remove(p.id), 'Подключение удалено')
+    if (ok) await run(() => api.profiles.remove(p.id), tr('Подключение удалено'))
     props.onChanged()
   }
 
@@ -32,15 +33,15 @@ export function Connections(props: {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Подключения</h1>
-          <p>Ваши серверы: SFTP-файлы и SSH-консоль в одном окне</p>
+          <h1>{tr('Подключения')}</h1>
+          <p>{tr('Ваши серверы: SFTP-файлы и SSH-консоль в одном окне')}</p>
         </div>
         <div className="row">
           <button className="btn" onClick={() => setEditing('new')}>
-            <Plus size={16} /> Вручную (SFTP)
+            <Plus size={16} />{' '}{tr('Вручную (SFTP)')}
           </button>
           <button className="btn primary" onClick={() => setImporting(true)}>
-            <Zap size={16} /> Добавить с хостинга
+            <Zap size={16} />{' '}{tr('Добавить с хостинга')}
           </button>
         </div>
       </div>
@@ -50,14 +51,14 @@ export function Connections(props: {
           <div className="icon">
             <Server size={28} />
           </div>
-          <h3>Пока нет ни одного сервера</h3>
-          <div>Проще всего — по API-ключу панели хостинга: Nexus сам найдёт ваши серверы и настроит файлы, консоль и всё остальное.</div>
+          <h3>{tr('Пока нет ни одного сервера')}</h3>
+          <div>{tr('Проще всего — по API-ключу панели хостинга: Nexus сам найдёт ваши серверы и настроит файлы, консоль и всё остальное.')}</div>
           <div className="row" style={{ justifyContent: 'center' }}>
             <button className="btn primary" onClick={() => setImporting(true)}>
-              <Zap size={16} /> Добавить с хостинга
+              <Zap size={16} />{' '}{tr('Добавить с хостинга')}
             </button>
             <button className="btn" onClick={() => setEditing('new')}>
-              <Plus size={16} /> Вручную (SFTP / VPS)
+              <Plus size={16} />{' '}{tr('Вручную (SFTP / VPS)')}
             </button>
           </div>
         </div>
@@ -75,20 +76,20 @@ export function Connections(props: {
                     {p.username}@{p.host}:{p.port}
                   </div>
                 </div>
-                <span className="badge" title={p.authType === 'key' ? 'Вход по ключу' : 'Вход по паролю'}>
+                <span className="badge" title={p.authType === 'key' ? tr('Вход по ключу') : tr('Вход по паролю')}>
                   {p.authType === 'key' ? <KeyRound size={12} /> : <Lock size={12} />}
-                  {p.authType === 'key' ? 'ключ' : 'пароль'}
+                  {p.authType === 'key' ? tr('ключ') : tr('пароль')}
                 </span>
               </div>
               <div className="actions">
                 <button className="btn primary" style={{ flex: 1 }} disabled={props.connecting !== null} onClick={() => props.onConnect(p)}>
                   {props.connecting === p.id ? <span className="spinner" /> : <Plug size={15} />}
-                  {props.connecting === p.id ? 'Подключение…' : 'Подключиться'}
+                  {props.connecting === p.id ? tr('Подключение…') : tr('Подключиться')}
                 </button>
-                <button className="btn icon" title="Изменить" onClick={() => setEditing(p)}>
+                <button className="btn icon" title={tr('Изменить')} onClick={() => setEditing(p)}>
                   <Pencil size={15} />
                 </button>
-                <button className="btn icon danger" title="Удалить" onClick={() => remove(p)}>
+                <button className="btn icon danger" title={tr('Удалить')} onClick={() => remove(p)}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -156,107 +157,106 @@ function ProfileModal(props: { profile: ConnectionProfile | null; onClose: () =>
     const input: ProfileInput = { ...form, name: form.name.trim() || form.host }
     if (secret) input.secret = secret
     else if (clearSecret) input.secret = ''
-    const res = await run(() => api.profiles.save(input), p ? 'Сохранено' : 'Подключение добавлено')
+    const res = await run(() => api.profiles.save(input), p ? tr('Сохранено') : tr('Подключение добавлено'))
     setBusy(false)
     if (res) props.onSaved()
   }
 
   const pickKey = async () => {
-    const [file] = await api.dialog.open({ title: 'Приватный ключ' })
+    const [file] = await api.dialog.open({ title: tr('Приватный ключ') })
     if (file) set('keyPath', file)
   }
 
   return (
     <Modal
-      title={p ? 'Изменить подключение' : 'Новое подключение'}
+      title={p ? tr('Изменить подключение') : tr('Новое подключение')}
       onClose={props.onClose}
       closeOnBackdrop={false}
       footer={
         <>
           <button className="btn" onClick={props.onClose}>
-            Отмена
+            {tr('Отмена')}
           </button>
           <button className="btn primary" disabled={!valid || busy} onClick={save}>
             {busy && <span className="spinner" />}
-            Сохранить
+            {tr('Сохранить')}
           </button>
         </>
       }
     >
       <div className="modal-body stack">
         <div className="field">
-          <label>Название</label>
-          <input className="input" placeholder="Мой сервер" value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus />
+          <label>{tr('Название')}</label>
+          <input className="input" placeholder={tr('Мой сервер')} value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus />
         </div>
         <div className="grid-3">
           <div className="field">
-            <label>Адрес (хост)</label>
+            <label>{tr('Адрес (хост)')}</label>
             <input className="input mono" placeholder="mc.example.com" value={form.host} onChange={(e) => onHostChange(e.target.value)} />
           </div>
           <div className="field">
-            <label>Порт</label>
+            <label>{tr('Порт')}</label>
             <input className="input mono" type="number" value={form.port} onChange={(e) => set('port', Number(e.target.value))} />
           </div>
           <div className="field">
-            <label>Пользователь</label>
+            <label>{tr('Пользователь')}</label>
             <input className="input mono" placeholder="root" value={form.username} onChange={(e) => set('username', e.target.value)} />
           </div>
         </div>
         <div className="callout">
           <span>
-            На хостингах Minecraft SFTP часто работает на порту <b>2022</b>, а логин имеет вид <span className="mono">user.abc123</span> — смотрите
-            данные SFTP в панели хостинга.
+            {tr('На хостингах Minecraft SFTP часто работает на порту')}{' '}<b>2022</b>{tr(', а логин имеет вид')}{' '}<span className="mono">user.abc123</span>{' '}{tr('— смотрите данные SFTP в панели хостинга.')}
           </span>
         </div>
 
         <div className="field">
-          <label>Способ входа</label>
+          <label>{tr('Способ входа')}</label>
           <div className="seg">
             <button className={form.authType === 'password' ? 'on' : ''} onClick={() => set('authType', 'password')}>
-              <Lock size={14} /> Пароль
+              <Lock size={14} />{' '}{tr('Пароль')}
             </button>
             <button className={form.authType === 'key' ? 'on' : ''} onClick={() => set('authType', 'key')}>
-              <KeyRound size={14} /> SSH-ключ
+              <KeyRound size={14} />{' '}{tr('SSH-ключ')}
             </button>
           </div>
         </div>
 
         {form.authType === 'key' && (
           <div className="field">
-            <label>Файл приватного ключа</label>
+            <label>{tr('Файл приватного ключа')}</label>
             <div className="row">
               <input className="input mono" value={form.keyPath} placeholder="C:\Users\...\.ssh\id_ed25519" onChange={(e) => set('keyPath', e.target.value)} />
               <button className="btn" onClick={pickKey}>
-                <FolderOpen size={15} /> Обзор
+                <FolderOpen size={15} />{' '}{tr('Обзор')}
               </button>
             </div>
           </div>
         )}
 
         <div className="field">
-          <label>{form.authType === 'key' ? 'Парольная фраза ключа (если есть)' : 'Пароль'}</label>
+          <label>{form.authType === 'key' ? tr('Парольная фраза ключа (если есть)') : tr('Пароль')}</label>
           <input
             className="input"
             type="password"
             value={secret}
-            placeholder={p?.hasSecret && !clearSecret ? '•••••••• (сохранён — оставьте пустым, чтобы не менять)' : form.authType === 'password' ? 'Оставьте пустым, чтобы вводить при подключении' : ''}
+            placeholder={p?.hasSecret && !clearSecret ? tr('•••••••• (сохранён — оставьте пустым, чтобы не менять)') : form.authType === 'password' ? tr('Оставьте пустым, чтобы вводить при подключении') : ''}
             onChange={(e) => setSecret(e.target.value)}
           />
           {p?.hasSecret && !secret && (
             <label className="check" style={{ fontSize: 12.5 }}>
               <input type="checkbox" checked={clearSecret} onChange={(e) => setClearSecret(e.target.checked)} />
-              Удалить сохранённый пароль
+              {tr('Удалить сохранённый пароль')}
             </label>
           )}
         </div>
 
         <div className="grid-2">
           <div className="field">
-            <label>Стартовая папка</label>
-            <input className="input mono" placeholder="домашняя" value={form.remotePath} onChange={(e) => set('remotePath', e.target.value)} />
+            <label>{tr('Стартовая папка')}</label>
+            <input className="input mono" placeholder={tr('домашняя')} value={form.remotePath} onChange={(e) => set('remotePath', e.target.value)} />
           </div>
           <div className="field">
-            <label>Цвет</label>
+            <label>{tr('Цвет')}</label>
             <div className="colors" style={{ height: 36, alignItems: 'center' }}>
               {COLORS.map((c) => (
                 <button key={c} className={form.color === c ? 'on' : ''} style={{ background: c }} onClick={() => set('color', c)} />
@@ -291,7 +291,7 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
       const r = await api.panel.discover(url, key)
       setFound(r)
       setPicked(new Set(r.servers.filter((s) => !exists(s.id)).map((s) => s.id)))
-      if (!r.servers.length) setError('По этому ключу не найдено ни одного сервера')
+      if (!r.servers.length) setError(tr('По этому ключу не найдено ни одного сервера'))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -322,7 +322,7 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
         }
         return true
       },
-      list.length === 1 ? 'Сервер добавлен' : `Добавлено серверов: ${list.length}`
+      list.length === 1 ? tr('Сервер добавлен') : tr('Добавлено серверов: {0}', list.length)
     )
     setBusy(false)
     if (ok) props.onDone()
@@ -336,22 +336,22 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
 
   return (
     <Modal
-      title="Добавить сервер с хостинга"
+      title={tr('Добавить сервер с хостинга')}
       icon={<Zap size={18} />}
       onClose={props.onClose}
       closeOnBackdrop={false}
       footer={
         <>
           <button className="btn" onClick={props.onClose}>
-            Отмена
+            {tr('Отмена')}
           </button>
           {found ? (
             <button className="btn primary" disabled={busy || picked.size === 0} onClick={create}>
-              {busy && <span className="spinner" />} Добавить ({picked.size})
+              {busy && <span className="spinner" />}{' '}{tr('Добавить (')}{picked.size})
             </button>
           ) : (
             <button className="btn primary" disabled={busy || !url.trim() || !key.trim()} onClick={find}>
-              {busy && <span className="spinner" />} Найти серверы
+              {busy && <span className="spinner" />}{' '}{tr('Найти серверы')}
             </button>
           )}
         </>
@@ -363,19 +363,18 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
             <div className="callout">
               <Info size={16} />
               <span>
-                Подходит для хостингов на панели <b>Pterodactyl</b> или <b>Pelican</b>. Nexus получит список ваших серверов и сам подставит адрес,
-                порт и логин SFTP.
+                {tr('Подходит для хостингов на панели')}{' '}<b>Pterodactyl</b>{' '}{tr('или')}{' '}<b>Pelican</b>{tr('. Nexus получит список ваших серверов и сам подставит адрес, порт и логин SFTP.')}
               </span>
             </div>
             <div className="field">
-              <label>Адрес панели</label>
+              <label>{tr('Адрес панели')}</label>
               <input className="input mono" autoFocus placeholder="https://panel.example.com" value={url} onChange={(e) => setUrl(e.target.value)} />
             </div>
             <div className="field">
               <label>
-                API-ключ клиента
+                {tr('API-ключ клиента')}
                 <a className="link" style={{ marginLeft: 8 }} onClick={keyUrl}>
-                  создать ключ <ExternalLink size={11} style={{ verticalAlign: -1 }} />
+                  {tr('создать ключ')}{' '}<ExternalLink size={11} style={{ verticalAlign: -1 }} />
                 </a>
               </label>
               <input
@@ -387,14 +386,14 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
                 onKeyDown={(e) => e.key === 'Enter' && url.trim() && key.trim() && find()}
               />
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                В панели: <b>Аккаунт → API Credentials → Create</b>. Описание любое, поле IP оставьте пустым. Ключ хранится зашифрованным.
+                {tr('В панели:')}{' '}<b>{tr('Аккаунт → API Credentials → Create')}</b>{tr('. Описание любое, поле IP оставьте пустым. Ключ хранится зашифрованным.')}
               </div>
             </div>
           </>
         ) : (
           <>
             <div className="muted" style={{ fontSize: 13 }}>
-              Аккаунт <b style={{ color: 'var(--text)' }}>{found.username}</b> · {found.panelUrl}
+              {tr('Аккаунт')}{' '}<b style={{ color: 'var(--text)' }}>{found.username}</b> · {found.panelUrl}
             </div>
             <div className="rows">
               {found.servers.map((s) => {
@@ -416,7 +415,7 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
                     />
                     <div className="main">
                       <b>
-                        {s.name} {had && <span className="badge">уже добавлен</span>} {!s.isOwner && <span className="badge blue">доступ выдан</span>}
+                        {s.name} {had && <span className="badge">{tr('уже добавлен')}</span>} {!s.isOwner && <span className="badge blue">{tr('доступ выдан')}</span>}
                       </b>
                       <span className="mono">
                         {s.sftpUser}@{s.sftpHost}:{s.sftpPort}
@@ -427,11 +426,11 @@ function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => vo
               })}
             </div>
             <div className="field">
-              <label>Пароль от панели (он же пароль SFTP)</label>
+              <label>{tr('Пароль от панели (он же пароль SFTP)')}</label>
               <input
                 className="input"
                 type="password"
-                placeholder="Можно не указывать — спросим при подключении"
+                placeholder={tr('Можно не указывать — спросим при подключении')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

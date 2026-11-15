@@ -1,6 +1,7 @@
 import type { ServerAdapter } from '../adapter'
 import { readNbtFile } from './nbt'
 import { parseAdvancements, parsePlayer, parseStats, type PlayerData, type PlayerStats } from './player'
+import { tr } from '@shared/i18n'
 
 /** Игрок, известный серверу (есть файл в playerdata) */
 export interface KnownPlayer {
@@ -59,13 +60,13 @@ export async function listPlayers(ad: ServerAdapter, world: string): Promise<Kno
 }
 
 export async function loadProfile(ad: ServerAdapter, world: string, uuid: string, name?: string): Promise<PlayerProfile> {
-  if (!UUID_RE.test(uuid)) throw new Error('Неверный UUID игрока')
+  if (!UUID_RE.test(uuid)) throw new Error(tr('Неверный UUID игрока'))
   const [bin, statsText, advText] = await Promise.all([
     ad.readBinary(`${world}/playerdata/${uuid}.dat`),
     ad.readFile(`${world}/stats/${uuid}.json`).catch(() => null),
     ad.readFile(`${world}/advancements/${uuid}.json`).catch(() => null)
   ])
-  if (!bin) throw new Error('Файл игрока не найден — он ещё не заходил на сервер или мир называется иначе')
+  if (!bin) throw new Error(tr('Файл игрока не найден — он ещё не заходил на сервер или мир называется иначе'))
   const data = parsePlayer(await readNbtFile(bin))
   return {
     uuid,

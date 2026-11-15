@@ -3,7 +3,7 @@
 [English](README.md) · **Русский**
 
 Панель управления серверами Minecraft для Windows: хостинг (SFTP + API панели Pterodactyl/Pelican) и локальные серверы на вашем ПК — в одном окне, без веб-панели и проводника.
-Electron + React + TypeScript.
+Electron + React + TypeScript. Интерфейс на английском, украинском и русском (переключатель внизу боковой панели).
 
 ## Возможности
 
@@ -32,6 +32,7 @@ Electron + React + TypeScript.
 npm install
 npm run dev       # режим разработки с горячей перезагрузкой
 npm run typecheck # проверка типов
+npm run i18n:check # все ли строки интерфейса переведены
 npm run dist      # сборка установщика .exe в release/
 ```
 

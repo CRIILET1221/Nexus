@@ -1,4 +1,5 @@
 import type { Nbt, NbtCompound } from './nbt'
+import { tr } from '@shared/i18n'
 
 /**
  * Разбор данных игрока (world/playerdata/<uuid>.dat).
@@ -358,26 +359,26 @@ export function parseAdvancements(json: string | null): number | undefined {
 // ---------- переводы ----------
 
 export const DIM_NAMES: Record<string, string> = {
-  'minecraft:overworld': 'Верхний мир',
-  'minecraft:the_nether': 'Незер',
-  'minecraft:the_end': 'Энд'
+  'minecraft:overworld': tr('Верхний мир'),
+  'minecraft:the_nether': tr('Незер'),
+  'minecraft:the_end': tr('Энд')
 }
 export const dimName = (d: string) => DIM_NAMES[d] ?? prettyId(d)
 
-export const GAMEMODES = ['Выживание', 'Творческий', 'Приключение', 'Наблюдатель']
+export const GAMEMODES = [tr('Выживание'), tr('Творческий'), tr('Приключение'), tr('Наблюдатель')]
 export const GAMEMODE_IDS = ['survival', 'creative', 'adventure', 'spectator']
 
 const ENCHANTS: Record<string, string> = {
-  protection: 'Защита', fire_protection: 'Огнеупорность', feather_falling: 'Невесомость', blast_protection: 'Взрывоустойчивость',
-  projectile_protection: 'Защита от снарядов', respiration: 'Подводное дыхание', aqua_affinity: 'Подводник', thorns: 'Шипы',
-  depth_strider: 'Подводная ходьба', frost_walker: 'Ледоход', binding_curse: 'Проклятие несъёмности', soul_speed: 'Скорость души',
-  swift_sneak: 'Проворство', sharpness: 'Острота', smite: 'Небесная кара', bane_of_arthropods: 'Бич членистоногих',
-  knockback: 'Отдача', fire_aspect: 'Заговор огня', looting: 'Добыча', sweeping: 'Разящий клинок', sweeping_edge: 'Разящий клинок',
-  efficiency: 'Эффективность', silk_touch: 'Шёлковое касание', unbreaking: 'Прочность', fortune: 'Удача', power: 'Сила',
-  punch: 'Откидывание', flame: 'Горящая стрела', infinity: 'Бесконечность', luck_of_the_sea: 'Морская удача', lure: 'Приманка',
-  loyalty: 'Верность', impaling: 'Пронзатель', riptide: 'Тягун', channeling: 'Громовержец', multishot: 'Тройной выстрел',
-  quick_charge: 'Быстрая перезарядка', piercing: 'Пронзающая стрела', mending: 'Починка', vanishing_curse: 'Проклятие утраты',
-  density: 'Плотность', breach: 'Пробитие', wind_burst: 'Порыв ветра'
+  protection: tr('Защита'), fire_protection: tr('Огнеупорность'), feather_falling: tr('Невесомость'), blast_protection: tr('Взрывоустойчивость'),
+  projectile_protection: tr('Защита от снарядов'), respiration: tr('Подводное дыхание'), aqua_affinity: tr('Подводник'), thorns: tr('Шипы'),
+  depth_strider: tr('Подводная ходьба'), frost_walker: tr('Ледоход'), binding_curse: tr('Проклятие несъёмности'), soul_speed: tr('Скорость души'),
+  swift_sneak: tr('Проворство'), sharpness: tr('Острота'), smite: tr('Небесная кара'), bane_of_arthropods: tr('Бич членистоногих'),
+  knockback: tr('Отдача'), fire_aspect: tr('Заговор огня'), looting: tr('Добыча'), sweeping: tr('Разящий клинок'), sweeping_edge: tr('Разящий клинок'),
+  efficiency: tr('Эффективность'), silk_touch: tr('Шёлковое касание'), unbreaking: tr('Прочность'), fortune: tr('Удача'), power: tr('Сила'),
+  punch: tr('Откидывание'), flame: tr('Горящая стрела'), infinity: tr('Бесконечность'), luck_of_the_sea: tr('Морская удача'), lure: tr('Приманка'),
+  loyalty: tr('Верность'), impaling: tr('Пронзатель'), riptide: tr('Тягун'), channeling: tr('Громовержец'), multishot: tr('Тройной выстрел'),
+  quick_charge: tr('Быстрая перезарядка'), piercing: tr('Пронзающая стрела'), mending: tr('Починка'), vanishing_curse: tr('Проклятие утраты'),
+  density: tr('Плотность'), breach: tr('Пробитие'), wind_burst: tr('Порыв ветра')
 }
 const SINGLE_LEVEL = new Set(['silk_touch', 'mending', 'infinity', 'flame', 'aqua_affinity', 'channeling', 'multishot', 'binding_curse', 'vanishing_curse'])
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
@@ -391,15 +392,15 @@ export function enchantName(id: string, lvl: number) {
 export const isCurse = (id: string) => id.endsWith('_curse')
 
 const EFFECTS: Record<string, string> = {
-  speed: 'Скорость', slowness: 'Замедление', haste: 'Спешка', mining_fatigue: 'Усталость', strength: 'Сила',
-  instant_health: 'Исцеление', instant_damage: 'Моментальный урон', jump_boost: 'Прыгучесть', nausea: 'Тошнота',
-  regeneration: 'Регенерация', resistance: 'Сопротивление', fire_resistance: 'Огнестойкость', water_breathing: 'Подводное дыхание',
-  invisibility: 'Невидимость', blindness: 'Слепота', night_vision: 'Ночное зрение', hunger: 'Голод', weakness: 'Слабость',
-  poison: 'Отравление', wither: 'Иссушение', health_boost: 'Прилив здоровья', absorption: 'Поглощение', saturation: 'Насыщение',
-  glowing: 'Свечение', levitation: 'Левитация', luck: 'Удача', unluck: 'Невезение', slow_falling: 'Плавное падение',
-  conduit_power: 'Сила источника', dolphins_grace: 'Грация дельфина', bad_omen: 'Дурное знамение',
-  hero_of_the_village: 'Герой деревни', darkness: 'Тьма', trial_omen: 'Знамение испытания', raid_omen: 'Знамение рейда',
-  wind_charged: 'Заряд ветра', weaving: 'Плетение', oozing: 'Слизистость', infested: 'Заражение'
+  speed: tr('Скорость'), slowness: tr('Замедление'), haste: tr('Спешка'), mining_fatigue: tr('Усталость'), strength: tr('Сила'),
+  instant_health: tr('Исцеление'), instant_damage: tr('Моментальный урон'), jump_boost: tr('Прыгучесть'), nausea: tr('Тошнота'),
+  regeneration: tr('Регенерация'), resistance: tr('Сопротивление'), fire_resistance: tr('Огнестойкость'), water_breathing: tr('Подводное дыхание'),
+  invisibility: tr('Невидимость'), blindness: tr('Слепота'), night_vision: tr('Ночное зрение'), hunger: tr('Голод'), weakness: tr('Слабость'),
+  poison: tr('Отравление'), wither: tr('Иссушение'), health_boost: tr('Прилив здоровья'), absorption: tr('Поглощение'), saturation: tr('Насыщение'),
+  glowing: tr('Свечение'), levitation: tr('Левитация'), luck: tr('Удача'), unluck: tr('Невезение'), slow_falling: tr('Плавное падение'),
+  conduit_power: tr('Сила источника'), dolphins_grace: tr('Грация дельфина'), bad_omen: tr('Дурное знамение'),
+  hero_of_the_village: tr('Герой деревни'), darkness: tr('Тьма'), trial_omen: tr('Знамение испытания'), raid_omen: tr('Знамение рейда'),
+  wind_charged: tr('Заряд ветра'), weaving: tr('Плетение'), oozing: tr('Слизистость'), infested: tr('Заражение')
 }
 export const effectName = (id: string, amp: number) => `${EFFECTS[shortId(id)] ?? prettyId(id)}${amp > 0 ? ' ' + (ROMAN[amp + 1] ?? amp + 1) : ''}`
 
@@ -415,7 +416,7 @@ export function ticksToDuration(t: number) {
   const m = Math.floor(t / 20 / 60)
   const h = Math.floor(m / 60)
   const d = Math.floor(h / 24)
-  if (d > 0) return `${d} д ${h % 24} ч`
-  if (h > 0) return `${h} ч ${m % 60} мин`
-  return `${m} мин`
+  if (d > 0) return tr('{0} д {1} ч', d, h % 24)
+  if (h > 0) return tr('{0} ч {1} мин', h, m % 60)
+  return tr('{0} мин', m)
 }

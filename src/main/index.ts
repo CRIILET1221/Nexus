@@ -5,10 +5,12 @@ import * as ssh from './ssh'
 import * as mc from './minecraft'
 import * as panel from './panel'
 import { ping } from './ping'
-import { profiles, servers } from './store'
+import { profiles, servers, settings } from './store'
 import * as textures from './textures'
+import { setLang, detectLang, type Lang } from '../shared/i18n'
 import * as localfs from './localfs'
 import * as modrinth from './modrinth'
+import { tr } from '../shared/i18n'
 
 textures.registerTextureScheme()
 
@@ -33,6 +35,11 @@ function createWindow() {
     }
   })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
+  // интерфейс перезагрузился (смена языка) — консоли откроются заново, старые закрываем
+  mainWindow.webContents.on('did-start-loading', () => {
+    panel.closeAll()
+    ssh.closeAllShells()
+  })
 
   // Внешние ссылки — только в браузере, и только https
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -40,6 +47,9 @@ function createWindow() {
     return { action: 'deny' }
   })
   mainWindow.webContents.on('will-navigate', (e, url) => {
+    // перезагрузка своей же страницы (смена языка) разрешена, переходы на другие адреса — нет
+    const self = mainWindow?.webContents.getURL().split('#')[0]
+    if (url.split('#')[0] === self) return
     if (!process.env.ELECTRON_RENDERER_URL || !url.startsWith(process.env.ELECTRON_RENDERER_URL)) e.preventDefault()
   })
 
@@ -60,6 +70,11 @@ function handle(channel: string, fn: (...args: any[]) => unknown) {
 
 function registerIpc() {
   handle('app:version', () => app.getVersion())
+  handle('app:setLang', (lang: Lang) => {
+    setLang(lang)
+    settings.setLang(lang)
+  })
+  handle('ssh:list', () => ssh.listSessions())
 
   // Профили
   handle('profiles:list', () => profiles.list())
@@ -80,7 +95,7 @@ function registerIpc() {
       title: opts.title,
       message: opts.message,
       detail: opts.detail,
-      buttons: ['Отмена', opts.ok ?? 'OK'],
+      buttons: [tr('Отмена'), opts.ok ?? 'OK'],
       defaultId: opts.danger ? 0 : 1,
       cancelId: 0
     })
@@ -194,12 +209,13 @@ function registerIpc() {
   handle('textures:remove', () => textures.remove())
   handle('shell:openPath', (path) => shell.openPath(path))
   handle('shell:openExternal', (url: string) => {
-    if (!/^https:\/\//.test(url)) throw new Error('Разрешены только https-ссылки')
+    if (!/^https:\/\//.test(url)) throw new Error(tr('Разрешены только https-ссылки'))
     return shell.openExternal(url)
   })
 }
 
 app.whenReady().then(() => {
+  setLang(settings.getLang() ?? detectLang(app.getLocale()))
   Menu.setApplicationMenu(null)
   textures.handleTextureProtocol()
   registerIpc()

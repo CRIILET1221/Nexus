@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { createWriteStream, promises as fsp } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { tr } from '../shared/i18n'
 
 const API = 'https://api.modrinth.com/v2'
 const UA = 'Nexus-ServerPanel/0.4 (desktop app)'
@@ -13,11 +14,11 @@ async function get<T = any>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(API + path, { ...init, headers: { 'User-Agent': UA, Accept: 'application/json', 'Content-Type': 'application/json', ...(init?.headers ?? {}) } })
   } catch {
-    throw new Error('Modrinth недоступен — проверьте интернет')
+    throw new Error(tr('Modrinth недоступен — проверьте интернет'))
   }
   if (res.status === 404) return null as T
-  if (res.status === 429) throw new Error('Слишком много запросов к Modrinth — подождите минуту')
-  if (!res.ok) throw new Error(`Modrinth ответил ошибкой ${res.status}`)
+  if (res.status === 429) throw new Error(tr('Слишком много запросов к Modrinth — подождите минуту'))
+  if (!res.ok) throw new Error(tr('Modrinth ответил ошибкой {0}', res.status))
   return (await res.json()) as T
 }
 
@@ -170,12 +171,12 @@ export async function updates(hashes: string[], loaders: string[], gameVersion?:
 /** Скачивает файл версии во временную папку с проверкой sha1 */
 export async function downloadTemp(file: VersionFile): Promise<string> {
   const u = new URL(file.url)
-  if (u.protocol !== 'https:' || !/(^|\.)modrinth\.com$/.test(u.hostname)) throw new Error('Неожиданный адрес файла')
+  if (u.protocol !== 'https:' || !/(^|\.)modrinth\.com$/.test(u.hostname)) throw new Error(tr('Неожиданный адрес файла'))
   const dir = join(tmpdir(), 'nexus-dl', randomUUID())
   await fsp.mkdir(dir, { recursive: true })
   const dest = join(dir, file.filename.replace(/[\\/:*?"<>|]/g, '_'))
   const res = await fetch(file.url, { headers: { 'User-Agent': UA } })
-  if (!res.ok || !res.body) throw new Error(`Не удалось скачать ${file.filename} (HTTP ${res.status})`)
+  if (!res.ok || !res.body) throw new Error(tr('Не удалось скачать {0} (HTTP {1})', file.filename, res.status))
   const hash = createHash('sha1')
   const out = createWriteStream(dest)
   const reader = res.body.getReader()
@@ -193,7 +194,7 @@ export async function downloadTemp(file: VersionFile): Promise<string> {
   }
   if (file.sha1 && hash.digest('hex') !== file.sha1) {
     await fsp.rm(dir, { recursive: true, force: true })
-    throw new Error(`Контрольная сумма ${file.filename} не совпала — файл повреждён`)
+    throw new Error(tr('Контрольная сумма {0} не совпала — файл повреждён', file.filename))
   }
   return dest
 }

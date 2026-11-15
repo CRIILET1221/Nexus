@@ -9,12 +9,13 @@ import type { RemoteEntry, TransferInfo } from '../shared/types'
 import { servers } from './store'
 import { emit } from './events'
 import { runTar } from './minecraft'
+import { tr } from '../shared/i18n'
 
 const MAX_EDIT = 10 * 1024 * 1024
 
 function rootOf(serverId: string) {
   const s = servers.get(serverId)
-  if (!s) throw new Error('Сервер не найден')
+  if (!s) throw new Error(tr('Сервер не найден'))
   return resolve(s.dir)
 }
 
@@ -22,7 +23,7 @@ function rootOf(serverId: string) {
 function abs(serverId: string, vpath: string) {
   const root = rootOf(serverId)
   const p = resolve(root, '.' + ('/' + vpath).replace(/\\/g, '/').replace(/\/+/g, '/'))
-  if (p !== root && !p.startsWith(root + sep)) throw new Error('Путь вне папки сервера')
+  if (p !== root && !p.startsWith(root + sep)) throw new Error(tr('Путь вне папки сервера'))
   return p
 }
 
@@ -34,7 +35,7 @@ export async function list(serverId: string, vdir: string): Promise<RemoteEntry[
   const root = rootOf(serverId)
   const dir = abs(serverId, vdir)
   const names = await fsp.readdir(dir).catch((e) => {
-    throw new Error(e.code === 'ENOENT' ? 'Папка не найдена' : e.message)
+    throw new Error(e.code === 'ENOENT' ? tr('Папка не найдена') : e.message)
   })
   const out = await Promise.all(
     names.map(async (name): Promise<RemoteEntry | null> => {
@@ -56,7 +57,7 @@ export async function mkdir(serverId: string, vpath: string) {
 export async function rename(serverId: string, from: string, to: string) {
   const a = abs(serverId, from)
   const b = abs(serverId, to)
-  if (await fsp.access(b).then(() => true, () => false)) throw new Error('Файл с таким именем уже существует')
+  if (await fsp.access(b).then(() => true, () => false)) throw new Error(tr('Файл с таким именем уже существует'))
   await fsp.rename(a, b)
 }
 
@@ -65,7 +66,7 @@ export async function remove(serverId: string, vpaths: string[]) {
   const root = rootOf(serverId)
   for (const v of vpaths) {
     const p = abs(serverId, v)
-    if (p === root) throw new Error('Нельзя удалить саму папку сервера')
+    if (p === root) throw new Error(tr('Нельзя удалить саму папку сервера'))
     await shell.trashItem(p)
   }
 }
@@ -73,9 +74,9 @@ export async function remove(serverId: string, vpaths: string[]) {
 export async function readText(serverId: string, vpath: string) {
   const p = abs(serverId, vpath)
   const st = await fsp.stat(p)
-  if (st.size > MAX_EDIT) throw new Error('Файл слишком большой для редактора (больше 10 МБ)')
+  if (st.size > MAX_EDIT) throw new Error(tr('Файл слишком большой для редактора (больше 10 МБ)'))
   const buf = await fsp.readFile(p)
-  if (buf.subarray(0, 8000).includes(0)) throw new Error('Это бинарный файл — его нельзя открыть в редакторе')
+  if (buf.subarray(0, 8000).includes(0)) throw new Error(tr('Это бинарный файл — его нельзя открыть в редакторе'))
   return buf.toString('utf8')
 }
 
@@ -144,7 +145,7 @@ export async function decompress(serverId: string, vdir: string, name: string) {
   const dir = abs(serverId, vdir)
   const file = abs(serverId, `${vdir}/${name}`)
   const r = await runTar(['-xf', file], dir)
-  if (r.code !== 0) throw new Error('Не удалось распаковать: ' + r.out.slice(0, 300))
+  if (r.code !== 0) throw new Error(tr('Не удалось распаковать: ') + r.out.slice(0, 300))
   changed(serverId, vdir)
 }
 
@@ -154,17 +155,17 @@ export async function compress(serverId: string, vdir: string, names: string[]) 
   const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '').replace(/(\d{8})(\d{6})/, '$1-$2')
   const archive = names.length === 1 ? `${names[0]}.zip` : `archive-${stamp}.zip`
   const r = await runTar(['-a', '-c', '-f', archive, ...names], dir)
-  if (r.code !== 0) throw new Error('Не удалось создать архив: ' + r.out.slice(0, 300))
+  if (r.code !== 0) throw new Error(tr('Не удалось создать архив: ') + r.out.slice(0, 300))
   changed(serverId, vdir)
   return archive
 }
 
 /** Скачивает файл по ссылке прямо в папку сервера */
 export async function pull(serverId: string, vdir: string, url: string, fileName?: string) {
-  if (!/^https:\/\//i.test(url)) throw new Error('Нужна https-ссылка')
+  if (!/^https:\/\//i.test(url)) throw new Error(tr('Нужна https-ссылка'))
   const dir = abs(serverId, vdir)
   const res = await fetch(url, { headers: { 'User-Agent': 'Nexus-ServerPanel/0.3 (desktop app)' } })
-  if (!res.ok || !res.body) throw new Error(`Не удалось скачать (HTTP ${res.status})`)
+  if (!res.ok || !res.body) throw new Error(tr('Не удалось скачать (HTTP {0})', res.status))
   const cd = res.headers.get('content-disposition') ?? ''
   const fromHeader = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd)?.[1]
   let name = fileName ?? (fromHeader ? decodeURIComponent(fromHeader) : decodeURIComponent(new URL(res.url).pathname.split('/').pop() || 'download'))

@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from '
 import { join, dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { ConnectionProfile, ProfileInput, LocalServerConfig } from '../shared/types'
+import { tr } from '../shared/i18n'
 
 interface StoredProfile extends Omit<ConnectionProfile, 'hasSecret' | 'hasPanelKey'> {
   /** base64 зашифрованного через safeStorage секрета */
@@ -15,6 +16,8 @@ interface StoreData {
   profiles: StoredProfile[]
   servers: LocalServerConfig[]
   javaPath?: string
+  /** язык интерфейса */
+  lang?: 'ru' | 'en' | 'uk'
   /** host:port -> SHA256 отпечаток ключа сервера */
   knownHosts?: Record<string, string>
 }
@@ -37,7 +40,7 @@ function load(): StoreData {
       return cache
     }
   } catch (e) {
-    console.error('Не удалось прочитать данные, создаю заново', e)
+    console.error(tr('Не удалось прочитать данные, создаю заново'), e)
   }
   cache = { profiles: [], servers: [] }
   return cache
@@ -148,6 +151,13 @@ export const settings = {
   },
   set javaPath(v: string | undefined) {
     load().javaPath = v
+    save()
+  },
+  getLang() {
+    return load().lang
+  },
+  setLang(v: 'ru' | 'en' | 'uk') {
+    load().lang = v
     save()
   }
 }

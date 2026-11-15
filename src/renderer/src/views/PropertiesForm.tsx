@@ -4,6 +4,7 @@ import type { ServerAdapter } from '../adapter'
 import { errText } from '../adapter'
 import { Switch, useAction } from '../components/ui'
 import { EditorModal } from '../components/Editor'
+import { tr } from '@shared/i18n'
 
 type Kind = 'bool' | 'number' | 'text' | 'password' | { options: [string, string][] }
 interface Def {
@@ -14,71 +15,71 @@ interface Def {
 
 const GROUPS: { title: string; defs: Def[] }[] = [
   {
-    title: 'Основное',
+    title: tr('Основное'),
     defs: [
-      { key: 'motd', label: 'Описание сервера (MOTD)', kind: 'text' },
-      { key: 'max-players', label: 'Максимум игроков', kind: 'number' },
-      { key: 'gamemode', label: 'Режим игры', kind: { options: [['survival', 'Выживание'], ['creative', 'Творческий'], ['adventure', 'Приключение'], ['spectator', 'Наблюдатель']] } },
-      { key: 'force-gamemode', label: 'Принудительный режим при входе', kind: 'bool' },
-      { key: 'difficulty', label: 'Сложность', kind: { options: [['peaceful', 'Мирная'], ['easy', 'Лёгкая'], ['normal', 'Нормальная'], ['hard', 'Сложная']] } },
-      { key: 'hardcore', label: 'Хардкор', kind: 'bool' },
+      { key: 'motd', label: tr('Описание сервера (MOTD)'), kind: 'text' },
+      { key: 'max-players', label: tr('Максимум игроков'), kind: 'number' },
+      { key: 'gamemode', label: tr('Режим игры'), kind: { options: [['survival', tr('Выживание')], ['creative', tr('Творческий')], ['adventure', tr('Приключение')], ['spectator', tr('Наблюдатель')]] } },
+      { key: 'force-gamemode', label: tr('Принудительный режим при входе'), kind: 'bool' },
+      { key: 'difficulty', label: tr('Сложность'), kind: { options: [['peaceful', tr('Мирная')], ['easy', tr('Лёгкая')], ['normal', tr('Нормальная')], ['hard', tr('Сложная')]] } },
+      { key: 'hardcore', label: tr('Хардкор'), kind: 'bool' },
       { key: 'pvp', label: 'PvP', kind: 'bool' },
-      { key: 'online-mode', label: 'Лицензионный режим', kind: 'bool' },
-      { key: 'white-list', label: 'Белый список', kind: 'bool' },
-      { key: 'enforce-whitelist', label: 'Кикать не из белого списка', kind: 'bool' },
-      { key: 'allow-flight', label: 'Разрешить полёт (без кика)', kind: 'bool' },
-      { key: 'spawn-protection', label: 'Защита спавна (блоков)', kind: 'number' },
-      { key: 'player-idle-timeout', label: 'Кик за AFK (минут, 0 — нет)', kind: 'number' }
+      { key: 'online-mode', label: tr('Лицензионный режим'), kind: 'bool' },
+      { key: 'white-list', label: tr('Белый список'), kind: 'bool' },
+      { key: 'enforce-whitelist', label: tr('Кикать не из белого списка'), kind: 'bool' },
+      { key: 'allow-flight', label: tr('Разрешить полёт (без кика)'), kind: 'bool' },
+      { key: 'spawn-protection', label: tr('Защита спавна (блоков)'), kind: 'number' },
+      { key: 'player-idle-timeout', label: tr('Кик за AFK (минут, 0 — нет)'), kind: 'number' }
     ]
   },
   {
-    title: 'Мир',
+    title: tr('Мир'),
     defs: [
-      { key: 'level-name', label: 'Папка мира', kind: 'text' },
-      { key: 'level-seed', label: 'Сид', kind: 'text' },
+      { key: 'level-name', label: tr('Папка мира'), kind: 'text' },
+      { key: 'level-seed', label: tr('Сид'), kind: 'text' },
       {
         key: 'level-type',
-        label: 'Тип мира',
-        kind: { options: [['minecraft:normal', 'Обычный'], ['minecraft:flat', 'Плоский'], ['minecraft:large_biomes', 'Большие биомы'], ['minecraft:amplified', 'Расширенный']] }
+        label: tr('Тип мира'),
+        kind: { options: [['minecraft:normal', tr('Обычный')], ['minecraft:flat', tr('Плоский')], ['minecraft:large_biomes', tr('Большие биомы')], ['minecraft:amplified', tr('Расширенный')]] }
       },
-      { key: 'generate-structures', label: 'Генерировать постройки', kind: 'bool' },
-      { key: 'allow-nether', label: 'Разрешить Незер', kind: 'bool' },
-      { key: 'spawn-monsters', label: 'Монстры', kind: 'bool' },
-      { key: 'spawn-animals', label: 'Животные', kind: 'bool' },
-      { key: 'spawn-npcs', label: 'Жители', kind: 'bool' },
-      { key: 'view-distance', label: 'Дальность прорисовки', kind: 'number' },
-      { key: 'simulation-distance', label: 'Дальность симуляции', kind: 'number' },
-      { key: 'max-world-size', label: 'Радиус мира', kind: 'number' }
+      { key: 'generate-structures', label: tr('Генерировать постройки'), kind: 'bool' },
+      { key: 'allow-nether', label: tr('Разрешить Незер'), kind: 'bool' },
+      { key: 'spawn-monsters', label: tr('Монстры'), kind: 'bool' },
+      { key: 'spawn-animals', label: tr('Животные'), kind: 'bool' },
+      { key: 'spawn-npcs', label: tr('Жители'), kind: 'bool' },
+      { key: 'view-distance', label: tr('Дальность прорисовки'), kind: 'number' },
+      { key: 'simulation-distance', label: tr('Дальность симуляции'), kind: 'number' },
+      { key: 'max-world-size', label: tr('Радиус мира'), kind: 'number' }
     ]
   },
   {
-    title: 'Сеть и доступ',
+    title: tr('Сеть и доступ'),
     defs: [
-      { key: 'server-port', label: 'Порт', kind: 'number' },
-      { key: 'server-ip', label: 'IP (обычно пусто)', kind: 'text' },
-      { key: 'enable-status', label: 'Показывать в списке серверов', kind: 'bool' },
-      { key: 'hide-online-players', label: 'Скрывать список игроков', kind: 'bool' },
-      { key: 'enforce-secure-profile', label: 'Требовать подпись чата', kind: 'bool' },
-      { key: 'prevent-proxy-connections', label: 'Блокировать VPN/прокси', kind: 'bool' },
+      { key: 'server-port', label: tr('Порт'), kind: 'number' },
+      { key: 'server-ip', label: tr('IP (обычно пусто)'), kind: 'text' },
+      { key: 'enable-status', label: tr('Показывать в списке серверов'), kind: 'bool' },
+      { key: 'hide-online-players', label: tr('Скрывать список игроков'), kind: 'bool' },
+      { key: 'enforce-secure-profile', label: tr('Требовать подпись чата'), kind: 'bool' },
+      { key: 'prevent-proxy-connections', label: tr('Блокировать VPN/прокси'), kind: 'bool' },
       { key: 'enable-rcon', label: 'RCON', kind: 'bool' },
-      { key: 'rcon.port', label: 'Порт RCON', kind: 'number' },
-      { key: 'rcon.password', label: 'Пароль RCON', kind: 'password' },
+      { key: 'rcon.port', label: tr('Порт RCON'), kind: 'number' },
+      { key: 'rcon.password', label: tr('Пароль RCON'), kind: 'password' },
       { key: 'enable-query', label: 'Query (GameSpy)', kind: 'bool' },
-      { key: 'query.port', label: 'Порт Query', kind: 'number' },
-      { key: 'network-compression-threshold', label: 'Порог сжатия', kind: 'number' }
+      { key: 'query.port', label: tr('Порт Query'), kind: 'number' },
+      { key: 'network-compression-threshold', label: tr('Порог сжатия'), kind: 'number' }
     ]
   },
   {
-    title: 'Прочее',
+    title: tr('Прочее'),
     defs: [
-      { key: 'enable-command-block', label: 'Командные блоки', kind: 'bool' },
-      { key: 'op-permission-level', label: 'Уровень прав OP', kind: { options: [['1', '1 — обход защиты спавна'], ['2', '2 — команды читов'], ['3', '3 — модерация'], ['4', '4 — все команды']] } },
-      { key: 'function-permission-level', label: 'Уровень прав функций', kind: 'number' },
-      { key: 'resource-pack', label: 'Ресурс-пак (URL)', kind: 'text' },
-      { key: 'require-resource-pack', label: 'Обязательный ресурс-пак', kind: 'bool' },
-      { key: 'sync-chunk-writes', label: 'Синхронная запись чанков', kind: 'bool' },
-      { key: 'max-tick-time', label: 'Watchdog (мс, -1 — выкл.)', kind: 'number' },
-      { key: 'entity-broadcast-range-percentage', label: 'Дальность сущностей, %', kind: 'number' }
+      { key: 'enable-command-block', label: tr('Командные блоки'), kind: 'bool' },
+      { key: 'op-permission-level', label: tr('Уровень прав OP'), kind: { options: [['1', tr('1 — обход защиты спавна')], ['2', tr('2 — команды читов')], ['3', tr('3 — модерация')], ['4', tr('4 — все команды')]] } },
+      { key: 'function-permission-level', label: tr('Уровень прав функций'), kind: 'number' },
+      { key: 'resource-pack', label: tr('Ресурс-пак (URL)'), kind: 'text' },
+      { key: 'require-resource-pack', label: tr('Обязательный ресурс-пак'), kind: 'bool' },
+      { key: 'sync-chunk-writes', label: tr('Синхронная запись чанков'), kind: 'bool' },
+      { key: 'max-tick-time', label: tr('Watchdog (мс, -1 — выкл.)'), kind: 'number' },
+      { key: 'entity-broadcast-range-percentage', label: tr('Дальность сущностей, %'), kind: 'number' }
     ]
   }
 ]
@@ -129,7 +130,7 @@ export function PropertiesForm(props: { adapter: ServerAdapter; visible: boolean
     try {
       const text = await ad.readFile('server.properties')
       if (text === null) {
-        setError('Файл server.properties ещё не создан — он появится после первого запуска сервера.')
+        setError(tr('Файл server.properties ещё не создан — он появится после первого запуска сервера.'))
         return
       }
       setOriginal(text)
@@ -156,7 +157,7 @@ export function PropertiesForm(props: { adapter: ServerAdapter; visible: boolean
       await ad.writeFile('server.properties', text)
       if (restart && ad.restart) await ad.restart()
       return true
-    }, restart ? 'Сохранено, сервер перезапускается' : 'Сохранено — применится после перезапуска')
+    }, restart ? tr('Сохранено, сервер перезапускается') : tr('Сохранено — применится после перезапуска'))
     setSaving(false)
     if (ok) {
       setOriginal(text)
@@ -175,7 +176,7 @@ export function PropertiesForm(props: { adapter: ServerAdapter; visible: boolean
           <FileCog size={28} />
           <div>{error}</div>
           <button className="btn" onClick={load}>
-            Повторить
+            {tr('Повторить')}
           </button>
         </div>
       </div>
@@ -194,22 +195,22 @@ export function PropertiesForm(props: { adapter: ServerAdapter; visible: boolean
       <div className="fm-toolbar">
         <div className="crumbs" style={{ cursor: 'default', maxWidth: 360 }}>
           <Search size={14} className="muted" style={{ margin: '0 4px 0 6px' }} />
-          <input placeholder="Поиск настройки…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input placeholder={tr('Поиск настройки…')} value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <div className="spacer" />
-        {changed.length > 0 && <span className="badge warn">Изменено: {changed.length}</span>}
+        {changed.length > 0 && <span className="badge warn">{tr('Изменено:')}{' '}{changed.length}</span>}
         <button className="btn" onClick={() => setRaw(true)}>
-          <FileCog size={15} /> Как текст
+          <FileCog size={15} />{' '}{tr('Как текст')}
         </button>
         <button className="btn" disabled={!changed.length} onClick={() => setValues(new Map(initial))}>
-          <RotateCcw size={15} /> Отменить
+          <RotateCcw size={15} />{' '}{tr('Отменить')}
         </button>
         <button className="btn" disabled={!changed.length || saving} onClick={() => save(false)}>
-          <Save size={15} /> Сохранить
+          <Save size={15} />{' '}{tr('Сохранить')}
         </button>
         {ad.restart && (
           <button className="btn primary" disabled={!changed.length || saving || !ad.canCommand} onClick={() => save(true)}>
-            {saving ? <span className="spinner" /> : <RotateCcw size={15} />} Сохранить и перезапустить
+            {saving ? <span className="spinner" /> : <RotateCcw size={15} />}{' '}{tr('Сохранить и перезапустить')}
           </button>
         )}
       </div>
@@ -231,7 +232,7 @@ export function PropertiesForm(props: { adapter: ServerAdapter; visible: boolean
           })}
           {extra.length > 0 && (
             <div style={{ marginBottom: 26 }}>
-              <div className="section-title">Дополнительно</div>
+              <div className="section-title">{tr('Дополнительно')}</div>
               <div className="props-grid">
                 {extra.map((k) => {
                   const v = values.get(k) ?? ''

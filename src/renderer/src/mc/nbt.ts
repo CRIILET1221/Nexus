@@ -1,3 +1,4 @@
+import { tr } from '@shared/i18n'
 /**
  * Минимальный читатель NBT (формат данных Minecraft, big-endian).
  * Compound → объект, List → массив, числа → number, Long → bigint,
@@ -18,7 +19,7 @@ class Reader {
     this.v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
   }
   need(n: number) {
-    if (this.pos + n > this.buf.length) throw new Error('Повреждённый NBT: неожиданный конец данных')
+    if (this.pos + n > this.buf.length) throw new Error(tr('Повреждённый NBT: неожиданный конец данных'))
   }
   u8() {
     this.need(1)
@@ -74,13 +75,13 @@ class Reader {
   }
   len() {
     const n = this.i32()
-    if (n < 0 || n > 16_000_000) throw new Error('Повреждённый NBT: неверная длина')
+    if (n < 0 || n > 16_000_000) throw new Error(tr('Повреждённый NBT: неверная длина'))
     return n
   }
 }
 
 function payload(r: Reader, type: number, depth: number): Nbt {
-  if (depth > 512) throw new Error('Слишком глубокая вложенность NBT')
+  if (depth > 512) throw new Error(tr('Слишком глубокая вложенность NBT'))
   switch (type) {
     case 1:
       return r.i8()
@@ -132,14 +133,14 @@ function payload(r: Reader, type: number, depth: number): Nbt {
       return a
     }
     default:
-      throw new Error(`Неизвестный тип NBT: ${type}`)
+      throw new Error(tr('Неизвестный тип NBT: {0}', type))
   }
 }
 
 export function parseNbt(buf: Uint8Array): NbtCompound {
   const r = new Reader(buf)
   const type = r.u8()
-  if (type !== 10) throw new Error('Файл не похож на NBT')
+  if (type !== 10) throw new Error(tr('Файл не похож на NBT'))
   r.str() // имя корня (обычно пустое)
   return payload(r, 10, 0) as NbtCompound
 }

@@ -16,12 +16,13 @@ import type {
 } from '../shared/types'
 import { servers, settings } from './store'
 import { emit } from './events'
+import { tr } from '../shared/i18n'
 
 const UA = 'Nexus-ServerPanel/0.1 (desktop app)'
 
 export async function getJson<T = any>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`Ошибка сети ${res.status} при запросе ${new URL(url).host}`)
+  if (!res.ok) throw new Error(tr('Ошибка сети {0} при запросе {1}', res.status, new URL(url).host))
   return (await res.json()) as T
 }
 
@@ -84,7 +85,7 @@ const FORGE_PROMOS = 'https://files.minecraftforge.net/net/minecraftforge/forge/
 async function forgeVersion(mc: string): Promise<string> {
   const data = await getJson<{ promos: Record<string, string> }>(FORGE_PROMOS)
   const v = data.promos[`${mc}-recommended`] ?? data.promos[`${mc}-latest`]
-  if (!v) throw new Error(`Forge для Minecraft ${mc} не найден`)
+  if (!v) throw new Error(tr('Forge для Minecraft {0} не найден', mc))
   return v
 }
 
@@ -98,7 +99,7 @@ async function resolveJar(core: ServerCore, version: string): Promise<JarSource>
     case 'paper': {
       const b = await getJson<any>(`https://fill.papermc.io/v3/projects/paper/versions/${version}/builds/latest`)
       const d = b.downloads?.['server:default']
-      if (!d?.url) throw new Error('Для этой версии Paper нет сборки')
+      if (!d?.url) throw new Error(tr('Для этой версии Paper нет сборки'))
       return { url: d.url, hash: d.checksums?.sha256 ? { algo: 'sha256', value: d.checksums.sha256 } : undefined }
     }
     case 'purpur':
@@ -121,10 +122,10 @@ async function resolveJar(core: ServerCore, version: string): Promise<JarSource>
         'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'
       )
       const entry = manifest.versions.find((v) => v.id === version)
-      if (!entry) throw new Error('Версия не найдена')
+      if (!entry) throw new Error(tr('Версия не найдена'))
       const meta = await getJson<any>(entry.url)
       const server = meta.downloads?.server
-      if (!server?.url) throw new Error('У этой версии нет серверного jar')
+      if (!server?.url) throw new Error(tr('У этой версии нет серверного jar'))
       return { url: server.url, hash: { algo: 'sha1', value: server.sha1 } }
     }
   }
@@ -132,7 +133,7 @@ async function resolveJar(core: ServerCore, version: string): Promise<JarSource>
 
 export async function downloadFile(src: JarSource, dest: string, onProgress: (done: number, total: number) => void) {
   const res = await fetch(src.url, { headers: { 'User-Agent': UA } })
-  if (!res.ok || !res.body) throw new Error(`Не удалось скачать ядро (HTTP ${res.status})`)
+  if (!res.ok || !res.body) throw new Error(tr('Не удалось скачать ядро (HTTP {0})', res.status))
   const total = Number(res.headers.get('content-length') ?? 0)
   const hash = src.hash ? createHash(src.hash.algo) : null
   const tmp = dest + '.part'
@@ -156,7 +157,7 @@ export async function downloadFile(src: JarSource, dest: string, onProgress: (do
   }
   if (hash && src.hash && hash.digest('hex').toLowerCase() !== src.hash.value.toLowerCase()) {
     await fsp.rm(tmp, { force: true })
-    throw new Error('Контрольная сумма файла не совпала — загрузка повреждена')
+    throw new Error(tr('Контрольная сумма файла не совпала — загрузка повреждена'))
   }
   await fsp.rename(tmp, dest)
 }
@@ -205,7 +206,7 @@ export async function detectJava(): Promise<JavaInfo> {
 export async function setJavaPath(path: string | undefined): Promise<JavaInfo> {
   if (path) {
     const info = await probeJava(path)
-    if (!info.version) throw new Error('Это не исполняемый файл Java')
+    if (!info.version) throw new Error(tr('Это не исполняемый файл Java'))
     settings.javaPath = path
     return info
   }
@@ -221,7 +222,7 @@ export function defaultServersDir() {
 
 function serverProperties(i: CreateServerInput) {
   return [
-    '# Создано в Nexus',
+    tr('# Создано в Nexus'),
     `motd=${i.motd.replace(/\n/g, '\\n')}`,
     `server-port=${i.port}`,
     `max-players=${i.maxPlayers}`,
@@ -236,38 +237,38 @@ function serverProperties(i: CreateServerInput) {
 }
 
 export async function createServer(input: CreateServerInput, progressId: string): Promise<LocalServerConfig> {
-  if (!input.acceptEula) throw new Error('Нужно принять лицензионное соглашение Minecraft (EULA)')
-  if (!input.name.trim()) throw new Error('Укажите название сервера')
+  if (!input.acceptEula) throw new Error(tr('Нужно принять лицензионное соглашение Minecraft (EULA)'))
+  if (!input.name.trim()) throw new Error(tr('Укажите название сервера'))
   const dir = input.dir
   await fsp.mkdir(dir, { recursive: true })
 
   const progress = (stage: string, transferred = 0, total = 0) =>
     emit('server:createProgress', { id: progressId, stage, transferred, total })
 
-  progress('Поиск сборки ядра…')
+  progress(tr('Поиск сборки ядра…'))
   const src = await resolveJar(input.core, input.version)
   const java = await detectJava()
   let jar = 'server.jar'
   let forgeArgs: string[] | undefined
 
   if (input.core === 'forge') {
-    if (!java.version) throw new Error('Для установки Forge нужна Java — установите её и попробуйте снова')
+    if (!java.version) throw new Error(tr('Для установки Forge нужна Java — установите её и попробуйте снова'))
     const installer = 'forge-installer.jar'
-    await downloadFile(src, join(dir, installer), (d, t) => progress('Загрузка установщика Forge', d, t))
-    await runForgeInstaller(java.path, dir, installer, (line) => progress(`Установка Forge: ${line.slice(0, 90)}`))
+    await downloadFile(src, join(dir, installer), (d, t) => progress(tr('Загрузка установщика Forge'), d, t))
+    await runForgeInstaller(java.path, dir, installer, (line) => progress(tr('Установка Forge: {0}', line.slice(0, 90))))
     await fsp.rm(join(dir, installer), { force: true })
     await fsp.rm(join(dir, installer + '.log'), { force: true })
     const detected = await detectForgeLaunch(dir)
     jar = detected.jar
     forgeArgs = detected.launchArgs
   } else {
-    await downloadFile(src, join(dir, jar), (d, t) => progress('Загрузка ядра', d, t))
+    await downloadFile(src, join(dir, jar), (d, t) => progress(tr('Загрузка ядра'), d, t))
   }
 
-  progress('Настройка сервера…')
+  progress(tr('Настройка сервера…'))
   await fsp.writeFile(
     join(dir, 'eula.txt'),
-    `# Принято пользователем в Nexus (https://aka.ms/MinecraftEULA)\neula=true\n`,
+    tr('# Принято пользователем в Nexus (https://aka.ms/MinecraftEULA)\neula=true\n'),
     'utf8'
   )
   if (!existsSync(join(dir, 'server.properties')))
@@ -289,7 +290,7 @@ export async function createServer(input: CreateServerInput, progressId: string)
   }
   await fsp.writeFile(join(dir, 'start.bat'), `@echo off\r\n"${java.path}" ${launchArgs(cfg).join(' ')}\r\npause\r\n`, 'utf8')
   servers.add(cfg)
-  progress('Готово', 1, 1)
+  progress(tr('Готово'), 1, 1)
   return cfg
 }
 
@@ -312,7 +313,7 @@ export async function updateServer(id: string, patch: Partial<LocalServerConfig>
 export async function deleteServer(id: string, deleteFiles: boolean) {
   const cfg = servers.get(id)
   if (!cfg) return
-  if (running.has(id)) throw new Error('Сначала остановите сервер')
+  if (running.has(id)) throw new Error(tr('Сначала остановите сервер'))
   if (deleteFiles && existsSync(cfg.dir)) await shell.trashItem(cfg.dir) // в корзину, не безвозвратно
   servers.remove(id)
 }
@@ -365,9 +366,9 @@ function runForgeInstaller(java: string, dir: string, installer: string, onLine:
     }
     proc.stdout.on('data', onData)
     proc.stderr.on('data', onData)
-    proc.on('error', (e) => reject(new Error(`Не удалось запустить Java: ${e.message}`)))
+    proc.on('error', (e) => reject(new Error(tr('Не удалось запустить Java: {0}', e.message))))
     proc.on('exit', (code) =>
-      code === 0 ? resolve() : reject(new Error(`Установщик Forge завершился с ошибкой (код ${code}).\n${tail.split('\n').slice(-5).join('\n')}`))
+      code === 0 ? resolve() : reject(new Error(tr('Установщик Forge завершился с ошибкой (код {0}).\n{1}', code, tail.split('\n').slice(-5).join('\n'))))
     )
   })
 }
@@ -383,7 +384,7 @@ async function detectForgeLaunch(dir: string): Promise<{ jar: string; launchArgs
   }
   const jars = (await fsp.readdir(dir)).filter((f) => /^forge-.*\.jar$/i.test(f) && !/installer/i.test(f))
   const jar = jars.find((f) => /universal|shim/i.test(f)) ?? jars[0]
-  if (!jar) throw new Error('Forge установился, но файл запуска не найден')
+  if (!jar) throw new Error(tr('Forge установился, но файл запуска не найден'))
   return { jar }
 }
 
@@ -395,7 +396,7 @@ export function runTar(args: string[], cwd: string) {
   return new Promise<{ code: number; out: string }>((resolve, reject) => {
     execFile('tar', args, { cwd, windowsHide: true, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
       const code = err ? ((err as any).code ?? 1) : 0
-      if (typeof code !== 'number') return reject(new Error('Не найден tar.exe (нужна Windows 10 1803 или новее)'))
+      if (typeof code !== 'number') return reject(new Error(tr('Не найден tar.exe (нужна Windows 10 1803 или новее)')))
       resolve({ code, out: `${stdout}\n${stderr}`.trim() })
     })
   })
@@ -403,7 +404,7 @@ export function runTar(args: string[], cwd: string) {
 
 export async function listBackups(id: string): Promise<LocalBackup[]> {
   const cfg = servers.get(id)
-  if (!cfg) throw new Error('Сервер не найден')
+  if (!cfg) throw new Error(tr('Сервер не найден'))
   const dir = join(cfg.dir, BACKUP_DIR)
   if (!existsSync(dir)) return []
   const out: LocalBackup[] = []
@@ -417,7 +418,7 @@ export async function listBackups(id: string): Promise<LocalBackup[]> {
 
 export async function createBackup(id: string, label?: string): Promise<LocalBackup> {
   const cfg = servers.get(id)
-  if (!cfg) throw new Error('Сервер не найден')
+  if (!cfg) throw new Error(tr('Сервер не найден'))
   const dir = join(cfg.dir, BACKUP_DIR)
   await fsp.mkdir(dir, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)
@@ -433,7 +434,7 @@ export async function createBackup(id: string, label?: string): Promise<LocalBac
   try {
     const res = await runTar(['-a', '-c', '-f', join(dir, name), '--exclude', 'session.lock', ...entries], cfg.dir)
     const st = await fsp.stat(join(dir, name)).catch(() => null)
-    if (!st || (res.code !== 0 && st.size === 0)) throw new Error(`Не удалось создать архив:\n${res.out.slice(-500)}`)
+    if (!st || (res.code !== 0 && st.size === 0)) throw new Error(tr('Не удалось создать архив:\n{0}', res.out.slice(-500)))
     return { name, size: st.size, mtime: st.mtimeMs }
   } finally {
     if (isRunning && running.has(id)) sendCommand(id, 'save-on')
@@ -442,25 +443,25 @@ export async function createBackup(id: string, label?: string): Promise<LocalBac
 
 export async function restoreBackup(id: string, name: string) {
   const cfg = servers.get(id)
-  if (!cfg) throw new Error('Сервер не найден')
-  if (running.has(id)) throw new Error('Остановите сервер перед восстановлением')
+  if (!cfg) throw new Error(tr('Сервер не найден'))
+  if (running.has(id)) throw new Error(tr('Остановите сервер перед восстановлением'))
   const file = join(cfg.dir, BACKUP_DIR, name)
-  if (!existsSync(file)) throw new Error('Бэкап не найден')
+  if (!existsSync(file)) throw new Error(tr('Бэкап не найден'))
   // текущие файлы — в корзину (их можно будет вернуть), затем распаковка
   for (const e of await fsp.readdir(cfg.dir)) if (e !== BACKUP_DIR) await shell.trashItem(join(cfg.dir, e))
   const res = await runTar(['-x', '-f', file], cfg.dir)
-  if (res.code !== 0) throw new Error(`Ошибка распаковки:\n${res.out.slice(-500)}`)
+  if (res.code !== 0) throw new Error(tr('Ошибка распаковки:\n{0}', res.out.slice(-500)))
 }
 
 export async function deleteBackup(id: string, name: string) {
   const cfg = servers.get(id)
-  if (!cfg) throw new Error('Сервер не найден')
+  if (!cfg) throw new Error(tr('Сервер не найден'))
   await shell.trashItem(join(cfg.dir, BACKUP_DIR, name))
 }
 
 export function backupsDir(id: string) {
   const cfg = servers.get(id)
-  if (!cfg) throw new Error('Сервер не найден')
+  if (!cfg) throw new Error(tr('Сервер не найден'))
   return join(cfg.dir, BACKUP_DIR)
 }
 
@@ -478,12 +479,12 @@ export function clearLog(id: string) {
 
 export async function startServer(id: string) {
   const cfg = servers.get(id)
-  if (!cfg) throw new Error('Сервер не найден')
+  if (!cfg) throw new Error(tr('Сервер не найден'))
   if (running.has(id)) return
-  if (!existsSync(join(cfg.dir, cfg.jar))) throw new Error(`Файл ${cfg.jar} не найден в папке сервера`)
+  if (!existsSync(join(cfg.dir, cfg.jar))) throw new Error(tr('Файл {0} не найден в папке сервера', cfg.jar))
 
   const java = settings.javaPath || cfg.javaPath || 'java'
-  appendLog(id, `\x1b[36m[Nexus] Запуск: ${java} ${launchArgs(cfg).join(' ')}\x1b[0m\n`)
+  appendLog(id, tr('\x1b[36m[Nexus] Запуск: {0} {1}\x1b[0m\n', java, launchArgs(cfg).join(' ')))
   const proc = spawn(java, launchArgs(cfg), { cwd: cfg.dir, windowsHide: true })
   const r: Running = { proc, status: 'starting', startedAt: Date.now() }
   running.set(id, r)
@@ -498,19 +499,19 @@ export async function startServer(id: string) {
   })
   proc.stderr.on('data', (d: Buffer) => appendLog(id, `\x1b[31m${err.write(d)}\x1b[0m`))
   proc.on('error', (e) => {
-    appendLog(id, `\x1b[31m[Nexus] Не удалось запустить Java: ${e.message}\x1b[0m\n`)
+    appendLog(id, tr('\x1b[31m[Nexus] Не удалось запустить Java: {0}\x1b[0m\n', e.message))
   })
   proc.on('exit', (code) => {
     if (r.killTimer) clearTimeout(r.killTimer)
     running.delete(id)
-    appendLog(id, `\x1b[36m[Nexus] Сервер остановлен (код ${code ?? '—'})\x1b[0m\n`)
+    appendLog(id, tr('\x1b[36m[Nexus] Сервер остановлен (код {0})\x1b[0m\n', code ?? '—'))
     emit('server:status', { id, status: 'stopped' } satisfies ServerRuntime)
   })
 }
 
 export function sendCommand(id: string, command: string) {
   const r = running.get(id)
-  if (!r) throw new Error('Сервер не запущен')
+  if (!r) throw new Error(tr('Сервер не запущен'))
   appendLog(id, `\x1b[90m> ${command}\x1b[0m\n`)
   r.proc.stdin.write(command + '\n')
 }

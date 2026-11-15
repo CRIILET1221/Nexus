@@ -9,6 +9,7 @@ import { api } from '../api'
 import { ContextMenu, PromptModal, useAction, useToast, type MenuItem } from '../components/ui'
 import { EditorModal } from '../components/Editor'
 import { formatBytes, formatDate, formatMode, isProbablyBinary, joinRemote, parentDir } from '../util'
+import { tr } from '@shared/i18n'
 
 type SortKey = 'name' | 'size' | 'mtime'
 
@@ -107,7 +108,7 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
 
   const open = (e: RemoteEntry) => {
     if (e.isDir) load(e.path)
-    else if (isProbablyBinary(e.name)) toast('Бинарный файл нельзя открыть в редакторе — скачайте его', 'info')
+    else if (isProbablyBinary(e.name)) toast(tr('Бинарный файл нельзя открыть в редакторе — скачайте его'), 'info')
     else setEditing(e)
   }
 
@@ -117,31 +118,31 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
   }
 
   const pickUpload = async (directories: boolean) => {
-    const files = await api.dialog.open({ multi: true, directories, title: directories ? 'Загрузить папки' : 'Загрузить файлы' })
+    const files = await api.dialog.open({ multi: true, directories, title: directories ? tr('Загрузить папки') : tr('Загрузить файлы') })
     uploadPaths(files)
   }
 
   const download = async (list: RemoteEntry[]) => {
     if (!list.length) return
-    const [dir] = await api.dialog.open({ directories: true, title: 'Куда сохранить' })
+    const [dir] = await api.dialog.open({ directories: true, title: tr('Куда сохранить') })
     if (dir) await run(() => fsb.download(list.map((e) => e.path), dir))
   }
 
   const remove = async (list: RemoteEntry[]) => {
     if (!list.length) return
     const ok = await api.dialog.confirm({
-      title: 'Удаление',
-      message: list.length === 1 ? `Удалить «${list[0].name}»?` : `Удалить выбранные объекты (${list.length})?`,
+      title: tr('Удаление'),
+      message: list.length === 1 ? tr('Удалить «{0}»?', list[0].name) : tr('Удалить выбранные объекты ({0})?', list.length),
       detail: fsb.trash
-        ? 'Файлы попадут в корзину Windows — их можно будет восстановить.'
+        ? tr('Файлы попадут в корзину Windows — их можно будет восстановить.')
         : list.some((e) => e.isDir)
-          ? 'Папки будут удалены вместе со всем содержимым. Это действие нельзя отменить.'
-          : 'Это действие нельзя отменить.',
-      ok: 'Удалить',
+          ? tr('Папки будут удалены вместе со всем содержимым. Это действие нельзя отменить.')
+          : tr('Это действие нельзя отменить.'),
+      ok: tr('Удалить'),
       danger: true
     })
     if (!ok) return
-    await run(() => fsb.remove(list.map((e) => e.path)), 'Удалено')
+    await run(() => fsb.remove(list.map((e) => e.path)), tr('Удалено'))
     load(path)
   }
 
@@ -152,18 +153,18 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
 
   const decompress = async (e: RemoteEntry) => {
     if (!arc) return
-    setArchiving(`Распаковка ${e.name}…`)
-    await run(() => arc.decompress(path, e.name), `Архив ${e.name} распакован`)
+    setArchiving(tr('Распаковка {0}…', e.name))
+    await run(() => arc.decompress(path, e.name), tr('Архив {0} распакован', e.name))
     setArchiving(null)
     load(path, true)
   }
 
   const compress = async (list: RemoteEntry[]) => {
     if (!arc || !list.length) return
-    setArchiving(`Архивация (${list.length})…`)
+    setArchiving(tr('Архивация ({0})…', list.length))
     const res = await run(
       () => arc.compress(path, list.map((e) => e.name)),
-      'Архив создан'
+      tr('Архив создан')
     )
     setArchiving(null)
     await load(path, true)
@@ -174,7 +175,7 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
     if (!arc) return
     const ok = await run(
       () => arc.pull(url.trim(), path).then(() => true),
-      'Скачивание запущено на сервере — файл появится через некоторое время'
+      tr('Скачивание запущено на сервере — файл появится через некоторое время')
     )
     if (ok) {
       setPullOpen(false)
@@ -184,7 +185,7 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
 
   const copyPath = (e: RemoteEntry) => {
     navigator.clipboard.writeText(e.path)
-    toast('Путь скопирован', 'success')
+    toast(tr('Путь скопирован'), 'success')
   }
 
   // ---------- Выделение ----------
@@ -223,18 +224,18 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
       x: ev.clientX,
       y: ev.clientY,
       items: [
-        { label: e.isDir ? 'Открыть' : 'Редактировать', icon: e.isDir ? <Folder size={15} /> : <Edit3 size={15} />, kbd: 'Enter', onClick: () => open(e), hidden: !single },
-        { label: list.length > 1 ? `Скачать (${list.length})` : 'Скачать', icon: <Download size={15} />, onClick: () => download(list) },
-        { label: 'Загрузить сюда', icon: <Upload size={15} />, onClick: () => api.dialog.open({ multi: true }).then((f) => uploadPaths(f, e.path)), hidden: !(single && e.isDir) },
+        { label: e.isDir ? tr('Открыть') : tr('Редактировать'), icon: e.isDir ? <Folder size={15} /> : <Edit3 size={15} />, kbd: 'Enter', onClick: () => open(e), hidden: !single },
+        { label: list.length > 1 ? tr('Скачать ({0})', list.length) : tr('Скачать'), icon: <Download size={15} />, onClick: () => download(list) },
+        { label: tr('Загрузить сюда'), icon: <Upload size={15} />, onClick: () => api.dialog.open({ multi: true }).then((f) => uploadPaths(f, e.path)), hidden: !(single && e.isDir) },
         { separator: true, hidden: !arc },
-        { label: 'Распаковать здесь', icon: <PackageOpen size={15} />, onClick: () => decompress(e), hidden: !(arc && single && !e.isDir && ARCHIVE_RE.test(e.name)) },
-        { label: list.length > 1 ? `Запаковать в архив (${list.length})` : 'Запаковать в архив', icon: <FileArchive size={15} />, onClick: () => compress(list), hidden: !arc },
+        { label: tr('Распаковать здесь'), icon: <PackageOpen size={15} />, onClick: () => decompress(e), hidden: !(arc && single && !e.isDir && ARCHIVE_RE.test(e.name)) },
+        { label: list.length > 1 ? tr('Запаковать в архив ({0})', list.length) : tr('Запаковать в архив'), icon: <FileArchive size={15} />, onClick: () => compress(list), hidden: !arc },
         { separator: true },
-        { label: 'Переименовать', icon: <Edit3 size={15} />, kbd: 'F2', onClick: () => setPrompt({ kind: 'rename', entry: e }), hidden: !single },
-        { label: 'Копировать путь', icon: <Copy size={15} />, onClick: () => copyPath(e), hidden: !single },
-        { label: 'Показать в проводнике', icon: <FolderOpen size={15} />, onClick: () => fsb.reveal?.(e.path), hidden: !(single && fsb.reveal) },
+        { label: tr('Переименовать'), icon: <Edit3 size={15} />, kbd: 'F2', onClick: () => setPrompt({ kind: 'rename', entry: e }), hidden: !single },
+        { label: tr('Копировать путь'), icon: <Copy size={15} />, onClick: () => copyPath(e), hidden: !single },
+        { label: tr('Показать в проводнике'), icon: <FolderOpen size={15} />, onClick: () => fsb.reveal?.(e.path), hidden: !(single && fsb.reveal) },
         { separator: true },
-        { label: list.length > 1 ? `Удалить (${list.length})` : 'Удалить', icon: <Trash2 size={15} />, kbd: 'Del', danger: true, onClick: () => remove(list) }
+        { label: list.length > 1 ? tr('Удалить ({0})', list.length) : tr('Удалить'), icon: <Trash2 size={15} />, kbd: 'Del', danger: true, onClick: () => remove(list) }
       ]
     })
   }
@@ -246,14 +247,14 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
       x: ev.clientX,
       y: ev.clientY,
       items: [
-        { label: 'Загрузить файлы', icon: <Upload size={15} />, onClick: () => pickUpload(false) },
-        { label: 'Загрузить папку', icon: <FolderUp size={15} />, onClick: () => pickUpload(true) },
+        { label: tr('Загрузить файлы'), icon: <Upload size={15} />, onClick: () => pickUpload(false) },
+        { label: tr('Загрузить папку'), icon: <FolderUp size={15} />, onClick: () => pickUpload(true) },
         { separator: true },
-        { label: 'Новая папка', icon: <FolderPlus size={15} />, onClick: () => setPrompt({ kind: 'mkdir' }) },
-        { label: 'Новый файл', icon: <FilePlus size={15} />, onClick: () => setPrompt({ kind: 'newfile' }) },
-        { label: 'Скачать на сервер по ссылке', icon: <Link2 size={15} />, onClick: () => setPullOpen(true), hidden: !arc },
+        { label: tr('Новая папка'), icon: <FolderPlus size={15} />, onClick: () => setPrompt({ kind: 'mkdir' }) },
+        { label: tr('Новый файл'), icon: <FilePlus size={15} />, onClick: () => setPrompt({ kind: 'newfile' }) },
+        { label: tr('Скачать на сервер по ссылке'), icon: <Link2 size={15} />, onClick: () => setPullOpen(true), hidden: !arc },
         { separator: true },
-        { label: 'Обновить', icon: <RefreshCw size={15} />, kbd: 'F5', onClick: () => load(path, true) }
+        { label: tr('Обновить'), icon: <RefreshCw size={15} />, kbd: 'F5', onClick: () => load(path, true) }
       ]
     })
   }
@@ -327,13 +328,13 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
   return (
     <>
       <div className="fm-toolbar">
-        <button className="btn icon" title="Вверх (Backspace)" onClick={() => load(parentDir(path))} disabled={path === '/'}>
+        <button className="btn icon" title={tr('Вверх (Backspace)')} onClick={() => load(parentDir(path))} disabled={path === '/'}>
           <ArrowUp size={16} />
         </button>
-        <button className="btn icon" title="Домашняя папка" onClick={() => load(home)}>
+        <button className="btn icon" title={tr('Домашняя папка')} onClick={() => load(home)}>
           <Home size={16} />
         </button>
-        <button className="btn icon" title="Обновить (F5)" onClick={() => load(path, true)}>
+        <button className="btn icon" title={tr('Обновить (F5)')} onClick={() => load(path, true)}>
           <RefreshCw size={16} className={loading ? 'spin' : ''} style={loading ? { animation: 'spin .8s linear infinite' } : undefined} />
         </button>
         <div className="crumbs" onClick={() => editPath === null && setEditPath(path)}>
@@ -366,36 +367,36 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
             ))
           )}
         </div>
-        <button className="btn" onClick={() => setPrompt({ kind: 'mkdir' })} title="Новая папка">
+        <button className="btn" onClick={() => setPrompt({ kind: 'mkdir' })} title={tr('Новая папка')}>
           <FolderPlus size={16} />
         </button>
-        <button className="btn" onClick={() => setPrompt({ kind: 'newfile' })} title="Новый файл">
+        <button className="btn" onClick={() => setPrompt({ kind: 'newfile' })} title={tr('Новый файл')}>
           <FilePlus size={16} />
         </button>
-        <button className="btn" onClick={() => download(selEntries)} disabled={!selEntries.length} title="Скачать выбранное">
+        <button className="btn" onClick={() => download(selEntries)} disabled={!selEntries.length} title={tr('Скачать выбранное')}>
           <Download size={16} />
         </button>
         {arc && (
           <>
             {selEntries.length === 1 && !selEntries[0].isDir && ARCHIVE_RE.test(selEntries[0].name) ? (
-              <button className="btn" onClick={() => decompress(selEntries[0])} disabled={!!archiving} title="Распаковать архив на сервере">
+              <button className="btn" onClick={() => decompress(selEntries[0])} disabled={!!archiving} title={tr('Распаковать архив на сервере')}>
                 <PackageOpen size={16} />
               </button>
             ) : (
-              <button className="btn" onClick={() => compress(selEntries)} disabled={!selEntries.length || !!archiving} title="Запаковать выбранное в архив на сервере">
+              <button className="btn" onClick={() => compress(selEntries)} disabled={!selEntries.length || !!archiving} title={tr('Запаковать выбранное в архив на сервере')}>
                 <FileArchive size={16} />
               </button>
             )}
-            <button className="btn" onClick={() => setPullOpen(true)} title="Скачать файл на сервер по ссылке">
+            <button className="btn" onClick={() => setPullOpen(true)} title={tr('Скачать файл на сервер по ссылке')}>
               <Link2 size={16} />
             </button>
           </>
         )}
         <button className="btn primary" onClick={() => pickUpload(false)}>
-          <Upload size={16} /> Загрузить
+          <Upload size={16} />{' '}{tr('Загрузить')}
         </button>
         {props.onOpenConsole && (
-          <button className="btn icon" title="Консоль" onClick={props.onOpenConsole}>
+          <button className="btn icon" title={tr('Консоль')} onClick={props.onOpenConsole}>
             <SquareTerminal size={16} />
           </button>
         )}
@@ -413,10 +414,10 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
         {error && !entries.length ? (
           <div className="empty-state">
             <XCircle size={28} color="var(--danger)" />
-            <h3>Не удалось открыть папку</h3>
+            <h3>{tr('Не удалось открыть папку')}</h3>
             <div>{error}</div>
             <button className="btn" onClick={() => load(home)}>
-              Вернуться домой
+              {tr('Вернуться домой')}
             </button>
           </div>
         ) : (
@@ -429,12 +430,12 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
             </colgroup>
             <thead>
               <tr>
-                <th onClick={() => sortBy('name')}>Имя{arrow('name')}</th>
+                <th onClick={() => sortBy('name')}>{tr('Имя')}{arrow('name')}</th>
                 <th onClick={() => sortBy('size')} style={{ textAlign: 'right' }}>
-                  Размер{arrow('size')}
+                  {tr('Размер')}{arrow('size')}
                 </th>
-                <th onClick={() => sortBy('mtime')}>Изменён{arrow('mtime')}</th>
-                {showMode && <th>Права</th>}
+                <th onClick={() => sortBy('mtime')}>{tr('Изменён')}{arrow('mtime')}</th>
+                {showMode && <th>{tr('Права')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -470,7 +471,7 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
                     <div className="name">
                       <FileIcon e={e} />
                       <span>{e.name}</span>
-                      {e.isLink && <span className="badge">ссылка</span>}
+                      {e.isLink && <span className="badge">{tr('ссылка')}</span>}
                     </div>
                   </td>
                   <td className="num">{e.isDir ? '' : formatBytes(e.size)}</td>
@@ -484,14 +485,14 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
         {!error && !loading && entries.length === 0 && (
           <div className="empty-state">
             <FolderUp size={28} />
-            <div>Папка пуста — перетащите сюда файлы из проводника</div>
+            <div>{tr('Папка пуста — перетащите сюда файлы из проводника')}</div>
           </div>
         )}
         {dragOver && (
           <div className="drop-zone">
             <div>
               <Upload size={32} />
-              {dropTarget ? `Загрузить в «${dropTarget.split('/').pop()}»` : `Отпустите, чтобы загрузить в ${path}`}
+              {dropTarget ? tr('Загрузить в «{0}»', dropTarget.split('/').pop()) : tr('Отпустите, чтобы загрузить в {0}', path)}
             </div>
           </div>
         )}
@@ -501,14 +502,14 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
         <div className="transfers">
           <div className="transfers-head">
             {activeTransfers ? <span className="spinner" style={{ width: 13, height: 13 }} /> : <CheckCircle2 size={14} color="var(--accent)" />}
-            <b>Передачи</b>
-            <span className="muted">{activeTransfers ? `${activeTransfers} в процессе` : 'все завершены'}</span>
+            <b>{tr('Передачи')}</b>
+            <span className="muted">{activeTransfers ? tr('{0} в процессе', activeTransfers) : tr('все завершены')}</span>
             <div className="spacer" />
             <button
               className="btn ghost sm"
               onClick={() => setTransfers((m) => Object.fromEntries(Object.entries(m).filter(([, t]) => t.state === 'active')))}
             >
-              Очистить завершённые
+              {tr('Очистить завершённые')}
             </button>
           </div>
           <div className="transfers-list">
@@ -536,7 +537,7 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
                       </div>
                     </div>
                     <span className="muted" style={{ textAlign: 'right' }}>
-                      {t.state === 'done' ? 'Готово' : t.state === 'error' ? 'Ошибка' : `${pct.toFixed(0)}%`}
+                      {t.state === 'done' ? tr('Готово') : t.state === 'error' ? tr('Ошибка') : `${pct.toFixed(0)}%`}
                     </span>
                   </div>
                 )
@@ -547,16 +548,16 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
 
       <div className="fm-status">
         <span>
-          {entries.filter((e) => e.isDir).length} папок · {entries.filter((e) => !e.isDir).length} файлов · {formatBytes(totalSize)}
+          {entries.filter((e) => e.isDir).length}{' '}{tr('папок ·')}{' '}{entries.filter((e) => !e.isDir).length}{' '}{tr('файлов ·')}{' '}{formatBytes(totalSize)}
         </span>
-        {selected.size > 0 && <span>Выбрано: {selected.size}</span>}
+        {selected.size > 0 && <span>{tr('Выбрано:')}{' '}{selected.size}</span>}
         <div className="spacer" />
         {archiving ? (
           <span style={{ color: 'var(--warn)', display: 'flex', gap: 6, alignItems: 'center' }}>
             <span className="spinner" style={{ width: 11, height: 11 }} /> {archiving}
           </span>
         ) : (
-          <span>{arc ? arc.hint : 'Перетащите файлы из проводника для загрузки'}</span>
+          <span>{arc ? arc.hint : tr('Перетащите файлы из проводника для загрузки')}</span>
         )}
       </div>
 
@@ -564,15 +565,15 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
 
       {prompt && (
         <PromptModal
-          title={prompt.kind === 'mkdir' ? 'Новая папка' : prompt.kind === 'newfile' ? 'Новый файл' : 'Переименовать'}
-          label="Имя"
+          title={prompt.kind === 'mkdir' ? tr('Новая папка') : prompt.kind === 'newfile' ? tr('Новый файл') : tr('Переименовать')}
+          label={tr('Имя')}
           initial={prompt.kind === 'rename' ? prompt.entry!.name : ''}
-          okText={prompt.kind === 'rename' ? 'Переименовать' : 'Создать'}
+          okText={prompt.kind === 'rename' ? tr('Переименовать') : tr('Создать')}
           onClose={() => setPrompt(null)}
           onSubmit={async (name) => {
             name = name.trim()
             if (name.includes('/')) {
-              toast('Имя не должно содержать «/»', 'error')
+              toast(tr('Имя не должно содержать «/»'), 'error')
               return
             }
             const target = joinRemote(path, name)
@@ -593,12 +594,12 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
 
       {pullOpen && (
         <PromptModal
-          title="Скачать файл на сервер"
-          label={`Ссылка на файл — он сохранится в ${path}`}
-          okText="Скачать"
+          title={tr('Скачать файл на сервер')}
+          label={tr('Ссылка на файл — он сохранится в {0}', path)}
+          okText={tr('Скачать')}
           onClose={() => setPullOpen(false)}
           onSubmit={pull}
-          extra={<div className="muted" style={{ fontSize: 12 }}>Например, прямая ссылка на плагин или мод (.jar). Некоторые хостинги отключают эту функцию.</div>}
+          extra={<div className="muted" style={{ fontSize: 12 }}>{tr('Например, прямая ссылка на плагин или мод (.jar). Некоторые хостинги отключают эту функцию.')}</div>}
         />
       )}
 

@@ -8,6 +8,7 @@ import { posix } from 'node:path'
 import type { RemoteEntry, SessionInfo, TransferInfo } from '../shared/types'
 import { profiles, knownHosts } from './store'
 import { emit } from './events'
+import { tr } from '../shared/i18n'
 
 interface Session {
   info: SessionInfo
@@ -19,9 +20,21 @@ interface Session {
 const sessions = new Map<string, Session>()
 const MAX_EDIT_SIZE = 10 * 1024 * 1024
 
+/** Закрывает все SSH-терминалы (при перезагрузке интерфейса), сами подключения остаются */
+export function closeAllShells() {
+  for (const s of sessions.values()) {
+    s.shells.forEach((ch) => ch.close())
+    s.shells.clear()
+  }
+}
+
+export function listSessions(): SessionInfo[] {
+  return [...sessions.values()].map((s) => s.info)
+}
+
 function getSession(id: string): Session {
   const s = sessions.get(id)
-  if (!s) throw new Error('Сессия закрыта. Подключитесь заново.')
+  if (!s) throw new Error(tr('Сессия закрыта. Подключитесь заново.'))
   return s
 }
 
@@ -35,19 +48,19 @@ async function verifyHost(hostPort: string, key: Buffer): Promise<boolean> {
   const opts = known
     ? {
         type: 'warning' as const,
-        title: 'Ключ сервера изменился!',
-        message: `Ключ сервера ${hostPort} отличается от сохранённого.`,
-        detail: `Это может означать атаку «человек посередине» или переустановку сервера.\n\nБыло: ${known}\nСейчас: ${fp}\n\nДоверять новому ключу?`,
-        buttons: ['Отмена', 'Доверять новому ключу'],
+        title: tr('Ключ сервера изменился!'),
+        message: tr('Ключ сервера {0} отличается от сохранённого.', hostPort),
+        detail: tr('Это может означать атаку «человек посередине» или переустановку сервера.\n\nБыло: {0}\nСейчас: {1}\n\nДоверять новому ключу?', known, fp),
+        buttons: [tr('Отмена'), tr('Доверять новому ключу')],
         defaultId: 0,
         cancelId: 0
       }
     : {
         type: 'question' as const,
-        title: 'Новый сервер',
-        message: `Первое подключение к ${hostPort}`,
-        detail: `Отпечаток ключа сервера:\n${fp}\n\nДоверять этому серверу?`,
-        buttons: ['Отмена', 'Доверять'],
+        title: tr('Новый сервер'),
+        message: tr('Первое подключение к {0}', hostPort),
+        detail: tr('Отпечаток ключа сервера:\n{0}\n\nДоверять этому серверу?', fp),
+        buttons: [tr('Отмена'), tr('Доверять')],
         defaultId: 1,
         cancelId: 0
       }
@@ -63,7 +76,7 @@ async function verifyHost(hostPort: string, key: Buffer): Promise<boolean> {
 
 export async function connect(profileId: string, secretOverride?: string): Promise<SessionInfo> {
   const profile = profiles.get(profileId)
-  if (!profile) throw new Error('Профиль не найден')
+  if (!profile) throw new Error(tr('Профиль не найден'))
   const secret = secretOverride ?? profiles.secret(profileId)
   const hostPort = `${profile.host}:${profile.port}`
 
@@ -79,7 +92,7 @@ export async function connect(profileId: string, secretOverride?: string): Promi
   } as ConnectConfig
 
   if (profile.authType === 'key') {
-    if (!profile.keyPath) throw new Error('Не указан файл ключа')
+    if (!profile.keyPath) throw new Error(tr('Не указан файл ключа'))
     cfg.privateKey = readFileSync(profile.keyPath)
     if (secret) cfg.passphrase = secret
   } else {
@@ -130,12 +143,12 @@ export async function connect(profileId: string, secretOverride?: string): Promi
 function humanizeError(err: Error & { level?: string; code?: string }): Error {
   const m = err.message || ''
   if (err.level === 'client-authentication' || /authentication/i.test(m))
-    return new Error('Неверный логин, пароль или ключ')
-  if (err.code === 'ECONNREFUSED') return new Error('Соединение отклонено: проверьте адрес и порт')
-  if (err.code === 'ENOTFOUND') return new Error('Хост не найден')
-  if (err.code === 'ETIMEDOUT' || /timed out/i.test(m)) return new Error('Превышено время ожидания')
-  if (/host key|verification failed/i.test(m)) return new Error('Подключение отменено: ключ сервера не подтверждён')
-  if (/passphrase|encrypted private key/i.test(m)) return new Error('Неверная парольная фраза ключа')
+    return new Error(tr('Неверный логин, пароль или ключ'))
+  if (err.code === 'ECONNREFUSED') return new Error(tr('Соединение отклонено: проверьте адрес и порт'))
+  if (err.code === 'ENOTFOUND') return new Error(tr('Хост не найден'))
+  if (err.code === 'ETIMEDOUT' || /timed out/i.test(m)) return new Error(tr('Превышено время ожидания'))
+  if (/host key|verification failed/i.test(m)) return new Error(tr('Подключение отменено: ключ сервера не подтверждён'))
+  if (/passphrase|encrypted private key/i.test(m)) return new Error(tr('Неверная парольная фраза ключа'))
   return err
 }
 
@@ -220,7 +233,7 @@ export async function remove(sessionId: string, paths: string[]) {
 export async function readText(sessionId: string, path: string): Promise<string> {
   const { sftp } = getSession(sessionId)
   const st = await p<any>((cb) => sftp.stat(path, cb as any))
-  if (st.size > MAX_EDIT_SIZE) throw new Error('Файл слишком большой для редактора (больше 10 МБ)')
+  if (st.size > MAX_EDIT_SIZE) throw new Error(tr('Файл слишком большой для редактора (больше 10 МБ)'))
   const chunks: Buffer[] = []
   await new Promise<void>((resolve, reject) => {
     const rs = sftp.createReadStream(path)
@@ -229,7 +242,7 @@ export async function readText(sessionId: string, path: string): Promise<string>
     rs.on('error', reject)
   })
   const buf = Buffer.concat(chunks)
-  if (buf.subarray(0, 8000).includes(0)) throw new Error('Это бинарный файл — его нельзя открыть в редакторе')
+  if (buf.subarray(0, 8000).includes(0)) throw new Error(tr('Это бинарный файл — его нельзя открыть в редакторе'))
   return buf.toString('utf8')
 }
 
@@ -237,7 +250,7 @@ export async function readText(sessionId: string, path: string): Promise<string>
 export async function readBinary(sessionId: string, path: string): Promise<Uint8Array> {
   const { sftp } = getSession(sessionId)
   const st = await p<any>((cb) => sftp.stat(path, cb as any))
-  if (st.size > 32 * 1024 * 1024) throw new Error('Файл слишком большой')
+  if (st.size > 32 * 1024 * 1024) throw new Error(tr('Файл слишком большой'))
   const chunks: Buffer[] = []
   await new Promise<void>((resolve, reject) => {
     const rs = sftp.createReadStream(path)
@@ -398,8 +411,8 @@ export function download(sessionId: string, remotePaths: string[], localDir: str
 export async function openShell(sessionId: string, cols: number, rows: number): Promise<string> {
   const s = getSession(sessionId)
   const NO_SHELL =
-    'Сервер не даёт SSH-консоль — доступен только SFTP (так работают почти все хостинги Minecraft). ' +
-    'Используйте вкладку «Консоль сервера» — она работает через API панели хостинга.'
+    tr('Сервер не даёт SSH-консоль — доступен только SFTP (так работают почти все хостинги Minecraft). ') +
+    tr('Используйте вкладку «Консоль сервера» — она работает через API панели хостинга.')
   const channel = await new Promise<ClientChannel>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(NO_SHELL)), 10_000)
     s.client.shell({ term: 'xterm-256color', cols, rows }, (err, ch) => {

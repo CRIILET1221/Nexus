@@ -8,12 +8,13 @@ import { api } from '../api'
 import { useAction, useToast } from '../components/ui'
 import { ConsoleTerminal } from '../components/ConsoleTerminal'
 import { formatBytes, formatUptime } from '../util'
+import { tr } from '@shared/i18n'
 
 const STATE: Record<PanelState, { text: string; dot: string }> = {
-  offline: { text: 'Выключен', dot: '' },
-  starting: { text: 'Запускается…', dot: 'warn' },
-  running: { text: 'Работает', dot: 'green' },
-  stopping: { text: 'Останавливается…', dot: 'warn' }
+  offline: { text: tr('Выключен'), dot: '' },
+  starting: { text: tr('Запускается…'), dot: 'warn' },
+  running: { text: tr('Работает'), dot: 'green' },
+  stopping: { text: tr('Останавливается…'), dot: 'warn' }
 }
 
 /** Консоль Minecraft-сервера на хостинге через API панели (Pterodactyl) */
@@ -68,10 +69,10 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
           if (m.id !== idRef.current) return
           setLinkState(m.state)
           setLinkError(m.error ?? null)
-          if (m.state === 'connected') write('\x1b[90m[Nexus] Подключено к консоли сервера\x1b[0m\n')
+          if (m.state === 'connected') write(tr('\x1b[90m[Nexus] Подключено к консоли сервера\x1b[0m\n'))
         })
       ]
-      write(`\x1b[90m[Nexus] Подключение к панели ${props.profile.panelUrl}…\x1b[0m\n`)
+      write(tr('\x1b[90m[Nexus] Подключение к панели {0}…\x1b[0m\n', props.profile.panelUrl))
       let disposed = false
       api.panel.open(props.profile.id).then(
         (id) => {
@@ -97,7 +98,7 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
   )
 
   const sendCommand = (c: string) => {
-    if (!idRef.current) return Promise.reject(new Error('Нет связи с консолью сервера'))
+    if (!idRef.current) return Promise.reject(new Error(tr('Нет связи с консолью сервера')))
     return api.panel.command(idRef.current, c)
   }
 
@@ -109,31 +110,31 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
     <>
       <div className="term-bar" style={{ gap: 12, flexWrap: 'wrap' }}>
         <span className={`dot ${connected ? st.dot : ''}`} />
-        <b style={{ fontSize: 13 }}>{connected ? st.text : linkState === 'closed' ? 'Нет связи' : 'Подключение…'}</b>
+        <b style={{ fontSize: 13 }}>{connected ? st.text : linkState === 'closed' ? tr('Нет связи') : tr('Подключение…')}</b>
         {connected ? (
-          <span className="badge green" title="Связь с консолью есть">
-            <Wifi size={12} /> онлайн
+          <span className="badge green" title={tr('Связь с консолью есть')}>
+            <Wifi size={12} />{' '}{tr('онлайн')}
           </span>
         ) : linkState === 'closed' ? (
           <span className="badge red">
-            <WifiOff size={12} /> отключено
+            <WifiOff size={12} />{' '}{tr('отключено')}
           </span>
         ) : (
           <span className="badge warn">
-            <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> {linkState === 'reconnecting' ? 'переподключение' : 'подключение'}
+            <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> {linkState === 'reconnecting' ? tr('переподключение') : tr('подключение')}
           </span>
         )}
         {stats && state !== 'offline' && (
           <>
-            <span className="badge" title="Нагрузка процессора">
+            <span className="badge" title={tr('Нагрузка процессора')}>
               <Cpu size={12} /> {stats.cpu.toFixed(0)}%
             </span>
-            <span className="badge" title="Оперативная память">
+            <span className="badge" title={tr('Оперативная память')}>
               <MemoryStick size={12} /> {formatBytes(stats.memory)}
               {stats.memoryLimit ? ` / ${formatBytes(stats.memoryLimit)}` : ''}
             </span>
             {stats.uptime > 0 && (
-              <span className="badge" title="Аптайм">
+              <span className="badge" title={tr('Аптайм')}>
                 <Timer size={12} /> {formatUptime(stats.uptime)}
               </span>
             )}
@@ -142,29 +143,29 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
         <div className="spacer" />
         {state === 'offline' ? (
           <button className="btn sm primary" disabled={!connected} onClick={() => power('start')}>
-            <Play size={13} fill="currentColor" /> Запустить
+            <Play size={13} fill="currentColor" />{' '}{tr('Запустить')}
           </button>
         ) : (
           <>
             <button className="btn sm" disabled={!connected || state === 'stopping'} onClick={() => power('restart')}>
-              <RotateCcw size={13} /> Перезапуск
+              <RotateCcw size={13} />{' '}{tr('Перезапуск')}
             </button>
             <button className="btn sm danger" disabled={!connected || state === 'stopping'} onClick={() => power('stop')}>
-              <Square size={12} fill="currentColor" /> Остановить
+              <Square size={12} fill="currentColor" />{' '}{tr('Остановить')}
             </button>
             {state === 'stopping' && (
-              <button className="btn sm solid-danger" onClick={() => power('kill')} title="Принудительно завершить">
-                <Skull size={13} /> Убить
+              <button className="btn sm solid-danger" onClick={() => power('kill')} title={tr('Принудительно завершить')}>
+                <Skull size={13} />{' '}{tr('Убить')}
               </button>
             )}
           </>
         )}
         {!connected && consoleId && (
           <button className="btn sm" onClick={() => api.panel.reconnect(consoleId)}>
-            <RefreshCw size={13} /> Переподключить
+            <RefreshCw size={13} />{' '}{tr('Переподключить')}
           </button>
         )}
-        <button className="btn sm icon ghost" title="Настройки консоли" onClick={props.onSettings}>
+        <button className="btn sm icon ghost" title={tr('Настройки консоли')} onClick={props.onSettings}>
           <Settings2 size={14} />
         </button>
       </div>
@@ -173,7 +174,7 @@ function LiveConsole(props: { profile: ConnectionProfile; visible: boolean; onSe
           <AlertTriangle size={16} />
           <span style={{ flex: 1 }}>{linkError}</span>
           <button className="btn sm" onClick={props.onSettings}>
-            Изменить настройки
+            {tr('Изменить настройки')}
           </button>
         </div>
       )}
@@ -197,7 +198,7 @@ export function PanelSetup(props: { profile: ConnectionProfile; canCancel: boole
   const find = async () => {
     if (!url.trim() || (!key.trim() && !p.hasPanelKey)) return
     if (!key.trim()) {
-      toast('Введите API-ключ ещё раз, чтобы загрузить список серверов', 'info')
+      toast(tr('Введите API-ключ ещё раз, чтобы загрузить список серверов'), 'info')
       return
     }
     setBusy(true)
@@ -205,7 +206,7 @@ export function PanelSetup(props: { profile: ConnectionProfile; canCancel: boole
     setBusy(false)
     if (!list) return
     setServers(list)
-    if (!list.length) toast('По этому ключу не найдено ни одного сервера', 'error')
+    if (!list.length) toast(tr('По этому ключу не найдено ни одного сервера'), 'error')
     else if (!list.some((s) => s.id === serverId)) {
       const guess = guessServerId(p.username)
       setServerId(list.find((s) => s.id === guess)?.id ?? list[0].id)
@@ -218,7 +219,7 @@ export function PanelSetup(props: { profile: ConnectionProfile; canCancel: boole
     if (panelUrl) {
       const ok = await run(
         () => api.profiles.save({ ...p, panelUrl, panelServerId: serverId.trim(), ...(key.trim() ? { panelKey: key.trim() } : {}) }),
-        'Консоль настроена'
+        tr('Консоль настроена')
       )
       if (ok) props.onSaved()
     }
@@ -231,39 +232,37 @@ export function PanelSetup(props: { profile: ConnectionProfile; canCancel: boole
     <div className="page">
       <div style={{ maxWidth: 640, margin: '0 auto' }} className="stack">
         <div>
-          <h1 style={{ margin: 0, fontSize: 20 }}>Консоль сервера Minecraft</h1>
+          <h1 style={{ margin: 0, fontSize: 20 }}>{tr('Консоль сервера Minecraft')}</h1>
           <p className="muted" style={{ margin: '6px 0 0' }}>
-            Хостинги Minecraft дают по SFTP только файлы — SSH-консоли там нет. Консоль работает через API панели хостинга (Pterodactyl
-            и совместимые). Настраивается один раз.
+            {tr('Хостинги Minecraft дают по SFTP только файлы — SSH-консоли там нет. Консоль работает через API панели хостинга (Pterodactyl и совместимые). Настраивается один раз.')}
           </p>
         </div>
 
         <div className="card stack" style={{ padding: 18 }}>
           <div className="field">
-            <label>1. Адрес панели хостинга</label>
+            <label>{tr('1. Адрес панели хостинга')}</label>
             <input className="input mono" placeholder="https://panel.myhost.com" value={url} onChange={(e) => setUrl(e.target.value)} />
-            <span className="hint">Сайт, где вы запускаете и останавливаете сервер. Можно вставить ссылку на страницу сервера.</span>
+            <span className="hint">{tr('Сайт, где вы запускаете и останавливаете сервер. Можно вставить ссылку на страницу сервера.')}</span>
           </div>
 
           <div className="field">
-            <label>2. API-ключ клиента</label>
+            <label>{tr('2. API-ключ клиента')}</label>
             <input
               className="input mono"
               type="password"
-              placeholder={p.hasPanelKey ? '•••••••• (сохранён — оставьте пустым, чтобы не менять)' : 'ptlc_…'}
+              placeholder={p.hasPanelKey ? tr('•••••••• (сохранён — оставьте пустым, чтобы не менять)') : 'ptlc_…'}
               value={key}
               onChange={(e) => setKey(e.target.value)}
             />
             <div className="callout" style={{ marginTop: 4 }}>
               <KeyRound size={16} />
               <span>
-                В панели откройте <b>Аккаунт → API-ключи</b> (Account → API Credentials), нажмите «Создать», поле «Разрешённые IP» оставьте
-                пустым и скопируйте ключ. Он хранится зашифрованным на этом ПК.
+                {tr('В панели откройте')}{' '}<b>{tr('Аккаунт → API-ключи')}</b>{' '}{tr('(Account → API Credentials), нажмите «Создать», поле «Разрешённые IP» оставьте пустым и скопируйте ключ. Он хранится зашифрованным на этом ПК.')}
                 {url.trim() && (
                   <>
                     {' '}
                     <a className="link" onClick={() => api.panel.normalize(url).then((u) => api.fs.openExternal(`${u}/account/api`)).catch(() => undefined)}>
-                      Открыть страницу ключей <ExternalLink size={11} style={{ verticalAlign: -1 }} />
+                      {tr('Открыть страницу ключей')}{' '}<ExternalLink size={11} style={{ verticalAlign: -1 }} />
                     </a>
                   </>
                 )}
@@ -272,7 +271,7 @@ export function PanelSetup(props: { profile: ConnectionProfile; canCancel: boole
           </div>
 
           <div className="field">
-            <label>3. Сервер</label>
+            <label>{tr('3. Сервер')}</label>
             <div className="row">
               {servers && servers.length > 0 ? (
                 <select className="select" value={serverId} onChange={(e) => setServerId(e.target.value)}>
@@ -283,14 +282,14 @@ export function PanelSetup(props: { profile: ConnectionProfile; canCancel: boole
                   ))}
                 </select>
               ) : (
-                <input className="input mono" placeholder="ID сервера, например 1a2b3c4d" value={serverId} onChange={(e) => setServerId(e.target.value)} />
+                <input className="input mono" placeholder={tr('ID сервера, например 1a2b3c4d')} value={serverId} onChange={(e) => setServerId(e.target.value)} />
               )}
               <button className="btn" disabled={busy || !url.trim() || !key.trim()} onClick={find}>
-                {busy ? <span className="spinner" /> : <Search size={15} />} Найти серверы
+                {busy ? <span className="spinner" /> : <Search size={15} />}{' '}{tr('Найти серверы')}
               </button>
             </div>
             <span className="hint">
-              ID — 8 символов из адреса страницы сервера в панели (…/server/<b>1a2b3c4d</b>). Обычно он же стоит в SFTP-логине после точки.
+              {tr('ID — 8 символов из адреса страницы сервера в панели (…/server/')}<b>1a2b3c4d</b>{tr('). Обычно он же стоит в SFTP-логине после точки.')}
             </span>
           </div>
         </div>
@@ -298,12 +297,12 @@ export function PanelSetup(props: { profile: ConnectionProfile; canCancel: boole
         <div className="row" style={{ justifyContent: 'flex-end' }}>
           {props.canCancel && (
             <button className="btn" onClick={props.onCancel}>
-              Отмена
+              {tr('Отмена')}
             </button>
           )}
           <button className="btn primary" disabled={!valid || busy} onClick={save}>
             {busy && <span className="spinner" />}
-            Сохранить и подключить
+            {tr('Сохранить и подключить')}
           </button>
         </div>
       </div>

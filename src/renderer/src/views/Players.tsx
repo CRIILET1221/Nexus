@@ -7,6 +7,7 @@ import type { ServerAdapter } from '../adapter'
 import { errText } from '../adapter'
 import { useAction } from '../components/ui'
 import { formatDate } from '../util'
+import { tr } from '@shared/i18n'
 
 interface Entry {
   name: string
@@ -22,7 +23,7 @@ function parseList(text: string | null, kind: 'ops' | 'whitelist' | 'bans' | 'ip
     return arr.map((x) => ({
       name: kind === 'ipbans' ? x.ip : x.name,
       uuid: x.uuid,
-      extra: kind === 'ops' ? `уровень ${x.level ?? 4}` : kind === 'bans' || kind === 'ipbans' ? x.reason : undefined,
+      extra: kind === 'ops' ? tr('уровень {0}', x.level ?? 4) : kind === 'bans' || kind === 'ipbans' ? x.reason : undefined,
       created: x.created
     }))
   } catch {
@@ -139,13 +140,13 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
         {!can && (
           <div className="callout warn" style={{ marginBottom: 16 }}>
             <Info size={16} />
-            <span>{ad.commandHint ?? 'Сервер не запущен — действия с игроками станут доступны после запуска.'}</span>
+            <span>{ad.commandHint ?? tr('Сервер не запущен — действия с игроками станут доступны после запуска.')}</span>
           </div>
         )}
 
         <div className="cards-4">
           <div className="card stat">
-            <div className="k">Онлайн</div>
+            <div className="k">{tr('Онлайн')}</div>
             <div className="big-num">
               {ping ? ping.online : '—'}
               <span className="muted" style={{ fontSize: 15, fontWeight: 500 }}>
@@ -154,23 +155,23 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
             </div>
           </div>
           <div className="card stat">
-            <div className="k">Версия</div>
+            <div className="k">{tr('Версия')}</div>
             <div className="v" style={{ fontSize: 13.5 }}>{ping?.version || '—'}</div>
           </div>
           <div className="card stat">
-            <div className="k">Пинг</div>
-            <div className="v">{ping ? `${ping.latency} мс` : '—'}</div>
+            <div className="k">{tr('Пинг')}</div>
+            <div className="v">{ping ? tr('{0} мс', ping.latency) : '—'}</div>
           </div>
           <div className="card stat">
-            <div className="k">Белый список</div>
+            <div className="k">{tr('Белый список')}</div>
             <div className="v">
-              {lists.whitelistOn === null ? '—' : lists.whitelistOn ? <span className="badge green">включён</span> : <span className="badge">выключен</span>}
+              {lists.whitelistOn === null ? '—' : lists.whitelistOn ? <span className="badge green">{tr('включён')}</span> : <span className="badge">{tr('выключен')}</span>}
               <button
                 className="btn ghost sm"
                 disabled={!can || lists.whitelistOn === null}
-                onClick={() => cmd(lists.whitelistOn ? 'whitelist off' : 'whitelist on', lists.whitelistOn ? 'Белый список выключен' : 'Белый список включён')}
+                onClick={() => cmd(lists.whitelistOn ? 'whitelist off' : 'whitelist on', lists.whitelistOn ? tr('Белый список выключен') : tr('Белый список включён'))}
               >
-                {lists.whitelistOn ? 'Выкл.' : 'Вкл.'}
+                {lists.whitelistOn ? tr('Выкл.') : tr('Вкл.')}
               </button>
             </div>
           </div>
@@ -178,10 +179,10 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
 
         {/* Онлайн */}
         <div className="section-title">
-          <Wifi size={16} /> Сейчас на сервере
+          <Wifi size={16} />{' '}{tr('Сейчас на сервере')}
           <div className="spacer" />
           <button className="btn sm ghost" onClick={() => (loadPing(), loadLists())}>
-            <RefreshCw size={13} /> Обновить
+            <RefreshCw size={13} />{' '}{tr('Обновить')}
           </button>
         </div>
         <div className="rows" style={{ marginBottom: 22 }}>
@@ -189,12 +190,12 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
             <div className="empty-row">{pingError}</div>
           ) : !ping ? (
             <div className="empty-row">
-              <span className="spinner" style={{ display: 'inline-block', verticalAlign: -3 }} /> Опрос сервера…
+              <span className="spinner" style={{ display: 'inline-block', verticalAlign: -3 }} />{' '}{tr('Опрос сервера…')}
             </div>
           ) : ping.online === 0 ? (
-            <div className="empty-row">Никого нет</div>
+            <div className="empty-row">{tr('Никого нет')}</div>
           ) : ping.players.length === 0 ? (
-            <div className="empty-row">Сервер скрывает список игроков ({ping.online} онлайн). Полный список — команда «list» в консоли.</div>
+            <div className="empty-row">{tr('Сервер скрывает список игроков (')}{ping.online}{' '}{tr('онлайн). Полный список — команда «list» в консоли.')}</div>
           ) : (
             ping.players.map((p) => (
               <div className="r" key={p.id || p.name}>
@@ -215,35 +216,35 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
                       setProfile({ uuid, name: p.name, online: true, mtime: known?.find((k) => k.uuid === uuid)?.mtime })
                     }}
                   >
-                    <Contact size={13} /> Профиль
+                    <Contact size={13} />{' '}{tr('Профиль')}
                   </button>
                   <select
                     className="select"
                     style={{ height: 28, width: 140, fontSize: 12.5 }}
                     disabled={!can}
                     value=""
-                    onChange={(e) => e.target.value && cmd(`gamemode ${e.target.value} ${p.name}`, `Режим игры изменён: ${p.name}`)}
+                    onChange={(e) => e.target.value && cmd(`gamemode ${e.target.value} ${p.name}`, tr('Режим игры изменён: {0}', p.name))}
                   >
-                    <option value="">Режим игры…</option>
-                    <option value="survival">Выживание</option>
-                    <option value="creative">Творческий</option>
-                    <option value="adventure">Приключение</option>
-                    <option value="spectator">Наблюдатель</option>
+                    <option value="">{tr('Режим игры…')}</option>
+                    <option value="survival">{tr('Выживание')}</option>
+                    <option value="creative">{tr('Творческий')}</option>
+                    <option value="adventure">{tr('Приключение')}</option>
+                    <option value="spectator">{tr('Наблюдатель')}</option>
                   </select>
                   {opNames.has(p.name.toLowerCase()) ? (
-                    <button className="btn sm" disabled={!can} onClick={() => cmd(`deop ${p.name}`, `${p.name} больше не оператор`)}>
+                    <button className="btn sm" disabled={!can} onClick={() => cmd(`deop ${p.name}`, tr('{0} больше не оператор', p.name))}>
                       <ShieldOff size={13} /> De-OP
                     </button>
                   ) : (
-                    <button className="btn sm" disabled={!can} onClick={() => cmd(`op ${p.name}`, `${p.name} теперь оператор`)}>
+                    <button className="btn sm" disabled={!can} onClick={() => cmd(`op ${p.name}`, tr('{0} теперь оператор', p.name))}>
                       <Crown size={13} /> OP
                     </button>
                   )}
-                  <button className="btn sm" disabled={!can} onClick={() => cmd(`kick ${p.name}`, `${p.name} кикнут`)}>
-                    <LogOut size={13} /> Кик
+                  <button className="btn sm" disabled={!can} onClick={() => cmd(`kick ${p.name}`, tr('{0} кикнут', p.name))}>
+                    <LogOut size={13} />{' '}{tr('Кик')}
                   </button>
-                  <button className="btn sm danger" disabled={!can} onClick={() => cmd(`ban ${p.name}`, `${p.name} забанен`)}>
-                    <Ban size={13} /> Бан
+                  <button className="btn sm danger" disabled={!can} onClick={() => cmd(`ban ${p.name}`, tr('{0} забанен', p.name))}>
+                    <Ban size={13} />{' '}{tr('Бан')}
                   </button>
                 </div>
               </div>
@@ -253,23 +254,23 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
 
         {/* Все, кто заходил */}
         <div className="section-title">
-          <Users size={16} /> Все игроки
+          <Users size={16} />{' '}{tr('Все игроки')}
           {known && <span className="badge">{known.length}</span>}
           <div className="spacer" />
           <div className="input-icon" style={{ width: 250 }}>
             <Search size={14} />
-            <input className="input" style={{ height: 30 }} placeholder="Поиск по нику или UUID" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            <input className="input" style={{ height: 30 }} placeholder={tr('Поиск по нику или UUID')} value={filter} onChange={(e) => setFilter(e.target.value)} />
           </div>
         </div>
         <div className="rows" style={{ marginBottom: 22, maxHeight: 420, overflow: 'auto' }}>
           {knownError ? (
             <div className="empty-row">{knownError}</div>
           ) : known === undefined ? (
-            <div className="empty-row">Загрузка…</div>
+            <div className="empty-row">{tr('Загрузка…')}</div>
           ) : known === null ? (
-            <div className="empty-row">Папка «{world}/playerdata» не найдена — на сервер ещё никто не заходил.</div>
+            <div className="empty-row">{tr('Папка «')}{world}{tr('/playerdata» не найдена — на сервер ещё никто не заходил.')}</div>
           ) : visibleKnown.length === 0 ? (
-            <div className="empty-row">{filter ? 'Никого не найдено' : 'Пока никто не заходил'}</div>
+            <div className="empty-row">{filter ? tr('Никого не найдено') : tr('Пока никто не заходил')}</div>
           ) : (
             visibleKnown.slice(0, 300).map((k) => {
               const f = flagsOf(k.name)
@@ -279,16 +280,16 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
                   <Head name={k.name ?? '?'} />
                   <div className="main">
                     <b>
-                      {k.name ?? <span className="muted">имя неизвестно</span>}
-                      {online && <span className="badge green" style={{ marginLeft: 6 }}>онлайн</span>}
+                      {k.name ?? <span className="muted">{tr('имя неизвестно')}</span>}
+                      {online && <span className="badge green" style={{ marginLeft: 6 }}>{tr('онлайн')}</span>}
                       {f.op && <span className="badge warn" style={{ marginLeft: 6 }}>OP</span>}
-                      {f.banned && <span className="badge red" style={{ marginLeft: 6 }}>бан</span>}
+                      {f.banned && <span className="badge red" style={{ marginLeft: 6 }}>{tr('бан')}</span>}
                     </b>
-                    <span>{k.mtime ? `данные от ${formatDate(k.mtime)}` : k.uuid}</span>
+                    <span>{k.mtime ? tr('данные от {0}', formatDate(k.mtime)) : k.uuid}</span>
                   </div>
                   <div className="acts">
                     <button className="btn sm ghost">
-                      <Contact size={13} /> Профиль
+                      <Contact size={13} />{' '}{tr('Профиль')}
                     </button>
                   </div>
                 </div>
@@ -299,77 +300,77 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
 
         {/* Действие по нику */}
         <div className="section-title">
-          <UserPlus size={16} /> Игрок по нику
+          <UserPlus size={16} />{' '}{tr('Игрок по нику')}
         </div>
         <div className="card" style={{ padding: 14, marginBottom: 22 }}>
           <div className="row" style={{ flexWrap: 'wrap' }}>
-            <input className="input" style={{ width: 240 }} placeholder="Ник игрока" value={name} onChange={(e) => setName(e.target.value)} />
-            <button className="btn" disabled={!nickKnown} onClick={profileByNick} title={nickKnown ? '' : 'Игрок с таким ником ещё не заходил'}>
-              <Contact size={14} /> Профиль
+            <input className="input" style={{ width: 240 }} placeholder={tr('Ник игрока')} value={name} onChange={(e) => setName(e.target.value)} />
+            <button className="btn" disabled={!nickKnown} onClick={profileByNick} title={nickKnown ? '' : tr('Игрок с таким ником ещё не заходил')}>
+              <Contact size={14} />{' '}{tr('Профиль')}
             </button>
-            <button className="btn" disabled={!can || !validNick} onClick={() => cmd(`whitelist add ${nick}`, `${nick} добавлен в белый список`)}>
-              <ListChecks size={14} /> В белый список
+            <button className="btn" disabled={!can || !validNick} onClick={() => cmd(`whitelist add ${nick}`, tr('{0} добавлен в белый список', nick))}>
+              <ListChecks size={14} />{' '}{tr('В белый список')}
             </button>
-            <button className="btn" disabled={!can || !validNick} onClick={() => cmd(`op ${nick}`, `${nick} теперь оператор`)}>
-              <Crown size={14} /> Сделать OP
+            <button className="btn" disabled={!can || !validNick} onClick={() => cmd(`op ${nick}`, tr('{0} теперь оператор', nick))}>
+              <Crown size={14} />{' '}{tr('Сделать OP')}
             </button>
-            <button className="btn" disabled={!can || !validNick} onClick={() => cmd(`pardon ${nick}`, `${nick} разбанен`)}>
-              <ShieldCheck size={14} /> Разбанить
+            <button className="btn" disabled={!can || !validNick} onClick={() => cmd(`pardon ${nick}`, tr('{0} разбанен', nick))}>
+              <ShieldCheck size={14} />{' '}{tr('Разбанить')}
             </button>
-            <button className="btn danger" disabled={!can || !validNick} onClick={() => cmd(`ban ${nick}`, `${nick} забанен`)}>
-              <Ban size={14} /> Забанить
+            <button className="btn danger" disabled={!can || !validNick} onClick={() => cmd(`ban ${nick}`, tr('{0} забанен', nick))}>
+              <Ban size={14} />{' '}{tr('Забанить')}
             </button>
           </div>
-          {nick && !validNick && <div className="hint muted" style={{ marginTop: 8, fontSize: 12 }}>Ник: 2–16 символов, латиница, цифры и «_»</div>}
+          {nick && !validNick && <div className="hint muted" style={{ marginTop: 8, fontSize: 12 }}>{tr('Ник: 2–16 символов, латиница, цифры и «_»')}</div>}
         </div>
 
         <div className="grid-2" style={{ alignItems: 'start' }}>
           <ListBlock
-            title="Операторы"
+            title={tr('Операторы')}
             icon={<Crown size={15} />}
             items={lists.ops}
             loading={loading}
-            empty="Нет операторов"
+            empty={tr('Нет операторов')}
             action={(e) => (
-              <button className="btn sm" disabled={!can} onClick={() => cmd(`deop ${e.name}`, `${e.name} больше не оператор`)}>
-                Снять
+              <button className="btn sm" disabled={!can} onClick={() => cmd(`deop ${e.name}`, tr('{0} больше не оператор', e.name))}>
+                {tr('Снять')}
               </button>
             )}
           />
           <ListBlock
-            title="Белый список"
+            title={tr('Белый список')}
             icon={<ListChecks size={15} />}
             items={lists.whitelist}
             loading={loading}
-            empty="Список пуст"
+            empty={tr('Список пуст')}
             action={(e) => (
-              <button className="btn sm" disabled={!can} onClick={() => cmd(`whitelist remove ${e.name}`, `${e.name} убран из белого списка`)}>
-                Убрать
+              <button className="btn sm" disabled={!can} onClick={() => cmd(`whitelist remove ${e.name}`, tr('{0} убран из белого списка', e.name))}>
+                {tr('Убрать')}
               </button>
             )}
           />
           <ListBlock
-            title="Забаненные игроки"
+            title={tr('Забаненные игроки')}
             icon={<Ban size={15} />}
             items={lists.bans}
             loading={loading}
-            empty="Банов нет"
+            empty={tr('Банов нет')}
             action={(e) => (
-              <button className="btn sm" disabled={!can} onClick={() => cmd(`pardon ${e.name}`, `${e.name} разбанен`)}>
-                Разбанить
+              <button className="btn sm" disabled={!can} onClick={() => cmd(`pardon ${e.name}`, tr('{0} разбанен', e.name))}>
+                {tr('Разбанить')}
               </button>
             )}
           />
           <ListBlock
-            title="Баны по IP"
+            title={tr('Баны по IP')}
             icon={<Gamepad2 size={15} />}
             items={lists.ipbans}
             loading={loading}
-            empty="Банов по IP нет"
+            empty={tr('Банов по IP нет')}
             mono
             action={(e) => (
-              <button className="btn sm" disabled={!can} onClick={() => cmd(`pardon-ip ${e.name}`, `IP ${e.name} разбанен`)}>
-                Разбанить
+              <button className="btn sm" disabled={!can} onClick={() => cmd(`pardon-ip ${e.name}`, tr('IP {0} разбанен', e.name))}>
+                {tr('Разбанить')}
               </button>
             )}
           />
@@ -406,7 +407,7 @@ function ListBlock(props: {
       </div>
       <div className="rows">
         {props.items.length === 0 ? (
-          <div className="empty-row">{props.loading ? 'Загрузка…' : props.empty}</div>
+          <div className="empty-row">{props.loading ? tr('Загрузка…') : props.empty}</div>
         ) : (
           props.items.map((e) => (
             <div className="r" key={e.uuid ?? e.name}>

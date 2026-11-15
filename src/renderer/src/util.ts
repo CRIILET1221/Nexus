@@ -1,6 +1,7 @@
+import { tr, dateLocale } from '@shared/i18n'
 export function formatBytes(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '0 Б'
-  const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ']
+  if (!Number.isFinite(n) || n <= 0) return tr('0 Б')
+  const units = [tr('Б'), tr('КБ'), tr('МБ'), tr('ГБ'), tr('ТБ')]
   const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)))
   const v = n / 1024 ** i
   return `${v >= 100 || i === 0 ? v.toFixed(0) : v.toFixed(1)} ${units[i]}`
@@ -8,7 +9,7 @@ export function formatBytes(n: number): string {
 
 export function formatDate(ms: number): string {
   if (!ms) return '—'
-  return new Date(ms).toLocaleString('ru-RU', {
+  return new Date(ms).toLocaleString(dateLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -26,7 +27,7 @@ export function formatUptime(ms: number): string {
   const s = Math.floor(ms / 1000)
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
-  return h ? `${h} ч ${m} мин` : m ? `${m} мин ${s % 60} с` : `${s} с`
+  return h ? tr('{0} ч {1} мин', h, m) : m ? tr('{0} мин {1} с', m, s % 60) : tr('{0} с', s)
 }
 
 const LANGS: Record<string, string> = {

@@ -1,3 +1,4 @@
+import './langInit'
 import { createRoot } from 'react-dom/client'
 import '@xterm/xterm/css/xterm.css'
 import './styles.css'
