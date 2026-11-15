@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Archive, CalendarClock, FolderTree, LayoutDashboard, LogOut, MonitorPlay, SlidersHorizontal, SquareTerminal, Users } from 'lucide-react'
+import { Puzzle, Archive, CalendarClock, FolderTree, LayoutDashboard, LogOut, MonitorPlay, SlidersHorizontal, SquareTerminal, Users } from 'lucide-react'
 import type { ConnectionProfile, SessionInfo } from '@shared/types'
 import { api } from '../api'
 import { gameAddress, fetchPanelServer, orNull, type ServerAdapter } from '../adapter'
@@ -7,17 +7,21 @@ import { FileManager } from './FileManager'
 import { ShellConsole } from './ShellConsole'
 import { PanelConsole, PanelSetup } from './PanelConsole'
 import { PlayersView } from './Players'
+import { AddonsView } from './Addons'
 import { PropertiesForm } from './PropertiesForm'
 import { PanelBackups } from './Backups'
 import { SchedulesView } from './Schedules'
 import { PanelManage } from './PanelManage'
 import { joinRemote } from '../util'
+import { sftpBackend } from '../fsBackend'
+import { ServerBar } from './ServerBar'
 
-type Tab = 'files' | 'server' | 'players' | 'props' | 'backups' | 'schedules' | 'panel' | 'ssh'
+type Tab = 'files' | 'server' | 'addons' | 'players' | 'props' | 'backups' | 'schedules' | 'panel' | 'ssh'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode; title?: string }[] = [
   { id: 'files', label: 'Файлы', icon: <FolderTree size={15} /> },
   { id: 'server', label: 'Консоль', icon: <MonitorPlay size={15} />, title: 'Консоль Minecraft через панель хостинга' },
+  { id: 'addons', label: 'Плагины и моды', icon: <Puzzle size={15} />, title: 'Установка и обновление из каталога Modrinth' },
   { id: 'players', label: 'Игроки', icon: <Users size={15} /> },
   { id: 'props', label: 'Настройки', icon: <SlidersHorizontal size={15} />, title: 'server.properties' },
   { id: 'backups', label: 'Бэкапы', icon: <Archive size={15} /> },
@@ -39,6 +43,8 @@ export function SessionView(props: {
   const p = props.profile
   const panelReady = !!(p?.panelUrl && p.panelServerId && p.hasPanelKey)
   const panelPid = panelReady ? p!.id : null
+
+  const fsb = useMemo(() => sftpBackend(s.id, s.homePath, panelPid), [s.id, s.homePath, panelPid])
 
   const go = (t: Tab) => {
     setOpened((o) => new Set(o).add(t))
@@ -93,7 +99,8 @@ export function SessionView(props: {
           <span>{s.host}</span>
         </div>
         <div className="spacer" />
-        <button className="btn danger sm" onClick={props.onDisconnect}>
+        {panelPid && <ServerBar profileId={panelPid} sftpHost={s.host.split(':')[0]} active={props.active} />}
+        <button className="btn ghost sm" onClick={props.onDisconnect} title="Закрыть соединение">
           <LogOut size={14} /> Отключиться
         </button>
       </div>
@@ -106,11 +113,16 @@ export function SessionView(props: {
       </div>
       <div className="session-body">
         <Pane show={tab === 'files'}>
-          <FileManager session={s} panelProfileId={panelPid} active={props.active && tab === 'files'} onOpenConsole={() => go('server')} />
+          <FileManager fs={fsb} active={props.active && tab === 'files'} onOpenConsole={() => go('server')} />
         </Pane>
         {opened.has('server') && p && (
           <Pane show={tab === 'server'}>
             <PanelConsole profile={p} visible={props.active && tab === 'server'} onProfileChanged={props.onProfileChanged} />
+          </Pane>
+        )}
+        {opened.has('addons') && (
+          <Pane show={tab === 'addons'}>
+            <AddonsView fs={fsb} adapter={adapter} visible={props.active && tab === 'addons'} />
           </Pane>
         )}
         {opened.has('players') && (

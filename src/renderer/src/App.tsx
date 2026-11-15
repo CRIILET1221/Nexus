@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Boxes, Plug, X, Terminal as TermIcon } from 'lucide-react'
 import type { ConnectionProfile, ServerRuntime, SessionInfo } from '@shared/types'
 import { api } from './api'
@@ -18,20 +18,62 @@ export function App() {
   const [askPassword, setAskPassword] = useState<ConnectionProfile | null>(null)
   const [savePassword, setSavePassword] = useState(true)
   const [runningCount, setRunningCount] = useState(0)
+  const [version, setVersion] = useState('')
+  const [reconnecting, setReconnecting] = useState<Record<string, string>>({})
+  const profilesRef = useRef(profiles)
+  profilesRef.current = profiles
+  const viewRef = useRef(view)
+  viewRef.current = view
 
   const reloadProfiles = useCallback(() => api.profiles.list().then(setProfiles), [])
 
   useEffect(() => {
     reloadProfiles()
+    api.app.version().then(setVersion).catch(() => undefined)
     api.mc.runtimes().then((r) => setRunningCount(r.length))
     const offStatus = api.on('server:status', () => api.mc.runtimes().then((r: ServerRuntime[]) => setRunningCount(r.length)))
     const offClosed = api.on('session:closed', ({ id }: { id: string }) => {
+      let lost: SessionInfo | undefined
       setSessions((list) => {
-        const s = list.find((x) => x.id === id)
-        if (s) toast(`Соединение с «${s.name}» разорвано`, 'error')
+        lost = list.find((x) => x.id === id)
         return list.filter((x) => x.id !== id)
       })
-      setView((v) => (v.kind === 'session' && v.id === id ? { kind: 'connections' } : v))
+      const wasOpen = viewRef.current.kind === 'session' && viewRef.current.id === id
+      setTimeout(async () => {
+        if (!lost) return
+        const prof = profilesRef.current.find((p) => p.id === lost!.profileId)
+        // пароль сохранён — тихо переподключаемся
+        if (prof && (prof.hasSecret || prof.authType === 'key')) {
+          toast(`Соединение с «${lost.name}» разорвано — переподключаюсь…`, 'info')
+          setReconnecting((r) => ({ ...r, [id]: lost!.name }))
+          const done = () =>
+            setReconnecting((r) => {
+              const n = { ...r }
+              delete n[id]
+              return n
+            })
+          for (const delay of [1000, 3000, 6000, 10000]) {
+            await new Promise((r) => setTimeout(r, delay))
+            try {
+              const s = await api.ssh.connect(prof.id)
+              setSessions((list) => [...list, s])
+              if (wasOpen && viewRef.current.kind === 'session' && viewRef.current.id === id) setView({ kind: 'session', id: s.id })
+              toast(`Соединение с «${lost.name}» восстановлено`, 'success')
+              done()
+              return
+            } catch {
+              /* пробуем ещё раз */
+            }
+          }
+        }
+        setReconnecting((r) => {
+          const n = { ...r }
+          delete n[id]
+          return n
+        })
+        toast(`Соединение с «${lost.name}» разорвано`, 'error')
+        if (viewRef.current.kind === 'session' && viewRef.current.id === id) setView({ kind: 'connections' })
+      }, 0)
     })
     return () => {
       offStatus()
@@ -59,6 +101,9 @@ export function App() {
   }
 
   const connect = (profile: ConnectionProfile) => {
+    // уже подключены — просто переключаемся
+    const open = sessions.find((s) => s.profileId === profile.id)
+    if (open) return setView({ kind: 'session', id: open.id })
     if (profile.authType === 'password' && !profile.hasSecret) {
       setSavePassword(true)
       setAskPassword(profile)
@@ -122,7 +167,7 @@ export function App() {
             </div>
           ))}
           <div className="footer">
-            <TermIcon size={12} style={{ verticalAlign: -2 }} /> Nexus 0.1 · SFTP / SSH / Minecraft
+            <TermIcon size={12} style={{ verticalAlign: -2 }} /> Nexus {version} · SFTP / SSH / Minecraft
           </div>
         </aside>
 
@@ -133,6 +178,13 @@ export function App() {
           <div style={{ display: view.kind === 'local' ? 'contents' : 'none' }}>
             <LocalServers visible={view.kind === 'local'} />
           </div>
+          {view.kind === 'session' && reconnecting[view.id] && (
+            <div className="empty-state" style={{ position: 'absolute', inset: 0 }}>
+              <span className="spinner" style={{ width: 26, height: 26 }} />
+              <h3>Переподключение к «{reconnecting[view.id]}»…</h3>
+              <div>Связь с сервером прервалась. Nexus пробует восстановить соединение.</div>
+            </div>
+          )}
           {sessions.map((s) => (
             <div
               key={s.id}

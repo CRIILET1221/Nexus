@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, Archive, Coffee, Copy, Cpu, FileCog, FolderOpen, Info, Network, Play, Plus, Power, RotateCcw,
-  Settings2, Skull, SlidersHorizontal, Square, SquareTerminal, Timer, Trash2, Boxes, Eraser, Users
+  Settings2, Skull, SlidersHorizontal, Square, SquareTerminal, Timer, Trash2, Boxes, Eraser, Users, FolderTree, Puzzle
 } from 'lucide-react'
 import type { CreateServerInput, JavaInfo, LocalServerConfig, ProgressEvent, ServerCore, ServerRuntime, ServerStatus } from '@shared/types'
 import { api } from '../api'
 import { orNull, type ServerAdapter } from '../adapter'
 import { PlayersView } from './Players'
+import { FileManager } from './FileManager'
+import { AddonsView, type AddonTarget } from './Addons'
+import { localBackend } from '../fsBackend'
 import { PropertiesForm } from './PropertiesForm'
 import { LocalBackups } from './Backups'
 import { Modal, Switch, useAction, useToast } from '../components/ui'
@@ -141,6 +144,22 @@ export function LocalServers(props: { visible: boolean }) {
   )
 }
 
+function addonPreset(cfg: LocalServerConfig): AddonTarget {
+  const v = cfg.version
+  switch (cfg.core) {
+    case 'paper':
+      return { type: 'plugin', loader: 'paper', gameVersion: v }
+    case 'purpur':
+      return { type: 'plugin', loader: 'purpur', gameVersion: v }
+    case 'fabric':
+      return { type: 'mod', loader: 'fabric', gameVersion: v }
+    case 'forge':
+      return { type: 'mod', loader: 'forge', gameVersion: v }
+    default:
+      return { type: 'datapack', loader: 'datapack', gameVersion: v }
+  }
+}
+
 // ---------- Карточка сервера ----------
 
 function ServerDetail(props: { cfg: LocalServerConfig; runtime?: ServerRuntime; visible: boolean; onChanged: () => void }) {
@@ -153,8 +172,10 @@ function ServerDetail(props: { cfg: LocalServerConfig; runtime?: ServerRuntime; 
   const [editProps, setEditProps] = useState(false)
   const [settings, setSettings] = useState(false)
   const [termGen, setTermGen] = useState(0)
-  const [tab, setTab] = useState<'console' | 'players' | 'props' | 'backups'>('console')
+  const [tab, setTab] = useState<'console' | 'files' | 'addons' | 'players' | 'props' | 'backups'>('console')
   const restartPending = useRef(false)
+
+  const fsb = useMemo(() => localBackend(cfg.id), [cfg.id])
 
   const adapter = useMemo<ServerAdapter>(() => {
     const file = (name: string) => `${cfg.dir}\\${name}`
@@ -328,6 +349,8 @@ function ServerDetail(props: { cfg: LocalServerConfig; runtime?: ServerRuntime; 
         {(
           [
             ['console', 'Консоль', <SquareTerminal size={15} key="i" />],
+            ['files', 'Файлы', <FolderTree size={15} key="i" />],
+            ['addons', cfg.core === 'vanilla' ? 'Датапаки' : cfg.core === 'fabric' || cfg.core === 'forge' ? 'Моды' : 'Плагины', <Puzzle size={15} key="i" />],
             ['players', 'Игроки', <Users size={15} key="i" />],
             ['props', 'Настройки', <SlidersHorizontal size={15} key="i" />],
             ['backups', 'Бэкапы', <Archive size={15} key="i" />]
@@ -369,6 +392,16 @@ function ServerDetail(props: { cfg: LocalServerConfig; runtime?: ServerRuntime; 
             onCommand={(c) => api.mc.command(cfg.id, c)}
           />
         </div>
+        {tab === 'files' && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+            <FileManager fs={fsb} active={props.visible} />
+          </div>
+        )}
+        {tab === 'addons' && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+            <AddonsView fs={fsb} adapter={adapter} visible={props.visible} preset={addonPreset(cfg)} />
+          </div>
+        )}
         {tab === 'players' && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
             <PlayersView adapter={adapter} visible={props.visible} />

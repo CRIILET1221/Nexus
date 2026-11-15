@@ -64,6 +64,48 @@ export async function listServers(url: string, key: string): Promise<PanelServer
   return out
 }
 
+export interface DiscoveredServer {
+  id: string
+  name: string
+  node?: string
+  sftpHost: string
+  sftpPort: number
+  sftpUser: string
+  isOwner: boolean
+}
+
+/** Всё, что нужно для подключения: аккаунт + серверы с данными SFTP */
+export async function discover(url: string, key: string): Promise<{ panelUrl: string; username: string; servers: DiscoveredServer[] }> {
+  const base = normalizePanelUrl(url)
+  const k = key.trim()
+  const account = await panelApi<any>(base, k, '/account')
+  const username: string = account?.attributes?.username
+  if (!username) throw new Error('Панель не вернула имя пользователя')
+  const panelHost = new URL(base).hostname
+  const servers: DiscoveredServer[] = []
+  for (let page = 1; page <= 10; page++) {
+    const res = await panelApi<any>(base, k, `?page=${page}&per_page=100`)
+    for (const s of res.data ?? []) {
+      const a = s.attributes
+      const ip: string = a.sftp_details?.ip ?? ''
+      // 0.0.0.0 / внутренние адреса — SFTP обычно доступен по адресу ноды/панели
+      const host = !ip || ip === '0.0.0.0' || /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip) ? panelHost : ip
+      servers.push({
+        id: a.identifier,
+        name: a.name,
+        node: a.node,
+        sftpHost: host,
+        sftpPort: a.sftp_details?.port ?? 2022,
+        sftpUser: `${username}.${a.identifier}`,
+        isOwner: !!a.server_owner
+      })
+    }
+    const pg = res.meta?.pagination
+    if (!pg || pg.current_page >= pg.total_pages) break
+  }
+  return { panelUrl: base, username, servers }
+}
+
 function creds(profileId: string) {
   const p = profiles.get(profileId)
   const key = profiles.panelKey(profileId)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { KeyRound, Lock, Pencil, Plug, Plus, Server, Trash2, FolderOpen } from 'lucide-react'
+import { KeyRound, Lock, Pencil, Plug, Plus, Server, Trash2, FolderOpen, Zap, ExternalLink, Info } from 'lucide-react'
 import type { ConnectionProfile, ProfileInput } from '@shared/types'
 import { api } from '../api'
 import { Modal, useAction } from '../components/ui'
@@ -13,6 +13,7 @@ export function Connections(props: {
   onChanged: () => void
 }) {
   const [editing, setEditing] = useState<ConnectionProfile | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
   const run = useAction()
 
   const remove = async (p: ConnectionProfile) => {
@@ -34,9 +35,14 @@ export function Connections(props: {
           <h1>Подключения</h1>
           <p>Ваши серверы: SFTP-файлы и SSH-консоль в одном окне</p>
         </div>
-        <button className="btn primary" onClick={() => setEditing('new')}>
-          <Plus size={16} /> Новое подключение
-        </button>
+        <div className="row">
+          <button className="btn" onClick={() => setEditing('new')}>
+            <Plus size={16} /> Вручную (SFTP)
+          </button>
+          <button className="btn primary" onClick={() => setImporting(true)}>
+            <Zap size={16} /> Добавить с хостинга
+          </button>
+        </div>
       </div>
 
       {props.profiles.length === 0 ? (
@@ -45,10 +51,15 @@ export function Connections(props: {
             <Server size={28} />
           </div>
           <h3>Пока нет ни одного сервера</h3>
-          <div>Добавьте хостинг или VPS: адрес, порт SFTP и данные для входа.</div>
-          <button className="btn primary" onClick={() => setEditing('new')}>
-            <Plus size={16} /> Добавить сервер
-          </button>
+          <div>Проще всего — по API-ключу панели хостинга: Nexus сам найдёт ваши серверы и настроит файлы, консоль и всё остальное.</div>
+          <div className="row" style={{ justifyContent: 'center' }}>
+            <button className="btn primary" onClick={() => setImporting(true)}>
+              <Zap size={16} /> Добавить с хостинга
+            </button>
+            <button className="btn" onClick={() => setEditing('new')}>
+              <Plus size={16} /> Вручную (SFTP / VPS)
+            </button>
+          </div>
         </div>
       ) : (
         <div className="profiles">
@@ -84,6 +95,17 @@ export function Connections(props: {
             </div>
           ))}
         </div>
+      )}
+
+      {importing && (
+        <HostingImport
+          existing={props.profiles}
+          onClose={() => setImporting(false)}
+          onDone={() => {
+            setImporting(false)
+            props.onChanged()
+          }}
+        />
       )}
 
       {editing && (
@@ -242,6 +264,186 @@ function ProfileModal(props: { profile: ConnectionProfile | null; onClose: () =>
             </div>
           </div>
         </div>
+      </div>
+    </Modal>
+  )
+}
+
+type Found = Awaited<ReturnType<typeof api.panel.discover>>
+
+/** Добавление серверов хостинга по API-ключу панели: данные SFTP подставляются сами */
+function HostingImport(props: { existing: ConnectionProfile[]; onClose: () => void; onDone: () => void }) {
+  const run = useAction()
+  const [url, setUrl] = useState('')
+  const [key, setKey] = useState('')
+  const [found, setFound] = useState<Found | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [password, setPassword] = useState('')
+
+  const exists = (id: string) => props.existing.some((p) => p.panelServerId === id)
+
+  const find = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await api.panel.discover(url, key)
+      setFound(r)
+      setPicked(new Set(r.servers.filter((s) => !exists(s.id)).map((s) => s.id)))
+      if (!r.servers.length) setError('По этому ключу не найдено ни одного сервера')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const create = async () => {
+    if (!found) return
+    setBusy(true)
+    const list = found.servers.filter((s) => picked.has(s.id))
+    const ok = await run(
+      async () => {
+        for (const [i, s] of list.entries()) {
+          await api.profiles.save({
+            name: s.name,
+            host: s.sftpHost,
+            port: s.sftpPort,
+            username: s.sftpUser,
+            authType: 'password',
+            remotePath: '',
+            color: COLORS[(props.existing.length + i) % COLORS.length],
+            panelUrl: found.panelUrl,
+            panelServerId: s.id,
+            panelKey: key.trim(),
+            secret: password || undefined
+          })
+        }
+        return true
+      },
+      list.length === 1 ? 'Сервер добавлен' : `Добавлено серверов: ${list.length}`
+    )
+    setBusy(false)
+    if (ok) props.onDone()
+  }
+
+  const keyUrl = () =>
+    api.panel
+      .normalize(url)
+      .then((u) => api.fs.openExternal(`${u}/account/api`))
+      .catch(() => undefined)
+
+  return (
+    <Modal
+      title="Добавить сервер с хостинга"
+      icon={<Zap size={18} />}
+      onClose={props.onClose}
+      closeOnBackdrop={false}
+      footer={
+        <>
+          <button className="btn" onClick={props.onClose}>
+            Отмена
+          </button>
+          {found ? (
+            <button className="btn primary" disabled={busy || picked.size === 0} onClick={create}>
+              {busy && <span className="spinner" />} Добавить ({picked.size})
+            </button>
+          ) : (
+            <button className="btn primary" disabled={busy || !url.trim() || !key.trim()} onClick={find}>
+              {busy && <span className="spinner" />} Найти серверы
+            </button>
+          )}
+        </>
+      }
+    >
+      <div className="modal-body stack">
+        {!found ? (
+          <>
+            <div className="callout">
+              <Info size={16} />
+              <span>
+                Подходит для хостингов на панели <b>Pterodactyl</b> или <b>Pelican</b>. Nexus получит список ваших серверов и сам подставит адрес,
+                порт и логин SFTP.
+              </span>
+            </div>
+            <div className="field">
+              <label>Адрес панели</label>
+              <input className="input mono" autoFocus placeholder="https://panel.example.com" value={url} onChange={(e) => setUrl(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>
+                API-ключ клиента
+                <a className="link" style={{ marginLeft: 8 }} onClick={keyUrl}>
+                  создать ключ <ExternalLink size={11} style={{ verticalAlign: -1 }} />
+                </a>
+              </label>
+              <input
+                className="input mono"
+                type="password"
+                placeholder="ptlc_…"
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && url.trim() && key.trim() && find()}
+              />
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                В панели: <b>Аккаунт → API Credentials → Create</b>. Описание любое, поле IP оставьте пустым. Ключ хранится зашифрованным.
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="muted" style={{ fontSize: 13 }}>
+              Аккаунт <b style={{ color: 'var(--text)' }}>{found.username}</b> · {found.panelUrl}
+            </div>
+            <div className="rows">
+              {found.servers.map((s) => {
+                const had = exists(s.id)
+                return (
+                  <label className="r" key={s.id} style={{ cursor: had ? 'default' : 'pointer', opacity: had ? 0.55 : 1 }}>
+                    <input
+                      type="checkbox"
+                      disabled={had}
+                      checked={picked.has(s.id)}
+                      onChange={(e) =>
+                        setPicked((cur) => {
+                          const n = new Set(cur)
+                          if (e.target.checked) n.add(s.id)
+                          else n.delete(s.id)
+                          return n
+                        })
+                      }
+                    />
+                    <div className="main">
+                      <b>
+                        {s.name} {had && <span className="badge">уже добавлен</span>} {!s.isOwner && <span className="badge blue">доступ выдан</span>}
+                      </b>
+                      <span className="mono">
+                        {s.sftpUser}@{s.sftpHost}:{s.sftpPort}
+                      </span>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+            <div className="field">
+              <label>Пароль от панели (он же пароль SFTP)</label>
+              <input
+                className="input"
+                type="password"
+                placeholder="Можно не указывать — спросим при подключении"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+        {error && (
+          <div className="callout danger">
+            <Info size={16} />
+            <span>{error}</span>
+          </div>
+        )}
       </div>
     </Modal>
   )

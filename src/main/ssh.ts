@@ -353,23 +353,27 @@ async function downloadItem(sftp: SFTPWrapper, remote: string, local: string, on
   }
 }
 
-/** Загружает локальные файлы/папки в удалённую папку. Возвращается сразу, прогресс идёт событиями. */
-export function upload(sessionId: string, localPaths: string[], remoteDir: string) {
+/**
+ * Загружает локальные файлы/папки в удалённую папку. Прогресс идёт событиями transfer:update,
+ * промис завершается, когда всё загружено (ошибка — если хоть один файл не загрузился).
+ */
+export async function upload(sessionId: string, localPaths: string[], remoteDir: string) {
   const { sftp } = getSession(sessionId)
-  ;(async () => {
-    for (const local of localPaths) {
-      const name = basename(local)
-      const t = makeTransfer(sessionId, 'upload', name, 0)
-      try {
-        t.info.total = await localSize(local)
-        await uploadItem(sftp, local, posix.join(remoteDir, name), (n) => t.add(n))
-        t.done()
-      } catch (e) {
-        t.fail(e)
-      }
+  let firstError: unknown = null
+  for (const local of localPaths) {
+    const name = basename(local)
+    const t = makeTransfer(sessionId, 'upload', name, 0)
+    try {
+      t.info.total = await localSize(local)
+      await uploadItem(sftp, local, posix.join(remoteDir, name), (n) => t.add(n))
+      t.done()
+    } catch (e) {
+      t.fail(e)
+      firstError ??= e
     }
-    emit('sftp:changed', { sessionId, dir: remoteDir })
-  })()
+  }
+  emit('sftp:changed', { sessionId, dir: remoteDir })
+  if (firstError) throw firstError instanceof Error ? firstError : new Error(String(firstError))
 }
 
 export function download(sessionId: string, remotePaths: string[], localDir: string) {
@@ -435,4 +439,21 @@ export function resizeShell(id: string, cols: number, rows: number) {
 
 export function closeShell(id: string) {
   findShell(id)?.close()
+}
+
+/** sha1 файлов на сервере (читаются потоком, на диск не сохраняются) */
+export async function hashFiles(sessionId: string, paths: string[]): Promise<string[]> {
+  const { sftp } = getSession(sessionId)
+  const out: string[] = []
+  for (const path of paths) {
+    const h = createHash('sha1')
+    await new Promise<void>((resolve, reject) => {
+      const rs = sftp.createReadStream(path)
+      rs.on('data', (c: Buffer) => h.update(c))
+      rs.on('end', () => resolve())
+      rs.on('error', reject)
+    })
+    out.push(h.digest('hex'))
+  }
+  return out
 }

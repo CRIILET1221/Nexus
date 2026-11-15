@@ -12,6 +12,44 @@ import type {
   SessionInfo
 } from '@shared/types'
 
+export type AddonType = 'plugin' | 'mod' | 'datapack'
+
+export interface SearchHit {
+  id: string
+  slug: string
+  title: string
+  description: string
+  author: string
+  icon?: string
+  downloads: number
+  follows: number
+  updated: string
+  categories: string[]
+  clientSide?: string
+  serverSide?: string
+}
+
+export interface ModVersion {
+  id: string
+  projectId: string
+  name: string
+  number: string
+  type: string
+  published: string
+  gameVersions: string[]
+  loaders: string[]
+  file: { url: string; filename: string; sha1: string; size: number }
+  dependencies: { projectId?: string; versionId?: string; type: string }[]
+}
+
+export interface ProjectInfo {
+  id: string
+  slug: string
+  title: string
+  icon?: string
+  description: string
+}
+
 export interface TextureStatus {
   installed: boolean
   version?: string
@@ -30,6 +68,10 @@ const b = (window as unknown as { nexus: Bridge }).nexus
 const i = b.invoke
 
 export const api = {
+  app: {
+    version: () => i<string>('app:version')
+  },
+
   on: b.on,
   pathForFile: b.pathForFile,
 
@@ -59,6 +101,7 @@ export const api = {
     readText: (id: string, path: string) => i<string>('sftp:readText', id, path),
     writeText: (id: string, path: string, content: string) => i<void>('sftp:writeText', id, path, content),
     readBinary: (id: string, path: string) => i<Uint8Array>('sftp:readBinary', id, path),
+    hash: (id: string, paths: string[]) => i<string[]>('sftp:hash', id, paths),
     upload: (id: string, locals: string[], dir: string) => i<void>('sftp:upload', id, locals, dir),
     download: (id: string, remotes: string[], localDir: string) => i<void>('sftp:download', id, remotes, localDir)
   },
@@ -73,6 +116,12 @@ export const api = {
   panel: {
     servers: (url: string, key: string) => i<{ id: string; name: string; node?: string }[]>('panel:servers', url, key),
     normalize: (url: string) => i<string>('panel:normalize', url),
+    discover: (url: string, key: string) =>
+      i<{
+        panelUrl: string
+        username: string
+        servers: { id: string; name: string; node?: string; sftpHost: string; sftpPort: number; sftpUser: string; isOwner: boolean }[]
+      }>('panel:discover', url, key),
     open: (profileId: string) => i<string>('panel:open', profileId),
     command: (id: string, cmd: string) => i<void>('panel:command', id, cmd),
     power: (id: string, signal: 'start' | 'stop' | 'restart' | 'kill') => i<void>('panel:power', id, signal),
@@ -108,6 +157,41 @@ export const api = {
     backupRestore: (id: string, name: string) => i<void>('mc:backupRestore', id, name),
     backupDelete: (id: string, name: string) => i<void>('mc:backupDelete', id, name),
     backupsDir: (id: string) => i<string>('mc:backupsDir', id)
+  },
+
+  /** файлы локального сервера (пути в стиле "/plugins") */
+  lfs: {
+    list: (id: string, dir: string) => i<RemoteEntry[]>('lfs:list', id, dir),
+    mkdir: (id: string, p: string) => i<void>('lfs:mkdir', id, p),
+    rename: (id: string, a: string, b: string) => i<void>('lfs:rename', id, a, b),
+    remove: (id: string, paths: string[]) => i<void>('lfs:remove', id, paths),
+    readText: (id: string, p: string) => i<string>('lfs:readText', id, p),
+    writeText: (id: string, p: string, c: string) => i<void>('lfs:writeText', id, p, c),
+    upload: (id: string, locals: string[], dir: string) => i<void>('lfs:upload', id, locals, dir),
+    download: (id: string, paths: string[], dest: string) => i<void>('lfs:download', id, paths, dest),
+    decompress: (id: string, dir: string, name: string) => i<void>('lfs:decompress', id, dir, name),
+    compress: (id: string, dir: string, names: string[]) => i<string>('lfs:compress', id, dir, names),
+    pull: (id: string, dir: string, url: string, name?: string) => i<string>('lfs:pull', id, dir, url, name),
+    reveal: (id: string, p: string) => i<void>('lfs:reveal', id, p),
+    hash: (id: string, paths: string[]) => i<string[]>('lfs:hash', id, paths)
+  },
+
+  modrinth: {
+    search: (opts: {
+      query: string
+      type: AddonType
+      loaders: string[]
+      gameVersion?: string
+      index?: 'relevance' | 'downloads' | 'updated' | 'follows'
+      offset?: number
+    }) => i<{ hits: SearchHit[]; total: number }>('modrinth:search', opts),
+    versions: (projectId: string, loaders: string[], gameVersion?: string) => i<ModVersion[]>('modrinth:versions', projectId, loaders, gameVersion),
+    version: (id: string) => i<ModVersion | null>('modrinth:version', id),
+    projects: (ids: string[]) => i<ProjectInfo[]>('modrinth:projects', ids),
+    identify: (hashes: string[]) => i<Record<string, ModVersion>>('modrinth:identify', hashes),
+    updates: (hashes: string[], loaders: string[], gameVersion?: string) => i<Record<string, ModVersion>>('modrinth:updates', hashes, loaders, gameVersion),
+    downloadTemp: (file: ModVersion['file']) => i<string>('modrinth:downloadTemp', file),
+    cleanupTemp: (path: string) => i<void>('modrinth:cleanupTemp', path)
   },
 
   textures: {

@@ -203,7 +203,9 @@ export function PlayersView(props: { adapter: ServerAdapter; visible: boolean })
                   <b>
                     {p.name} {opNames.has(p.name.toLowerCase()) && <span className="badge warn" style={{ marginLeft: 6 }}>OP</span>}
                   </b>
-                  <span className="mono">{p.id}</span>
+                  <span className="mono" title={p.id}>
+                    {p.id.slice(0, 8)}…
+                  </span>
                 </div>
                 <div className="acts">
                   <button

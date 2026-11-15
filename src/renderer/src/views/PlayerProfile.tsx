@@ -410,12 +410,15 @@ function ItemTooltip({ item, x, y }: { item: Item; x: number; y: number }) {
       ))}
       {item.contents && item.contents.length > 0 && (
         <div className="tip-contents">
-          {item.contents.slice(0, 27).map((c, i) => (
-            <span key={i} className="tc">
-              <ItemIcon id={c.id} size={22} />
-              {c.count > 1 && <i>{c.count}</i>}
-            </span>
-          ))}
+          {Array.from({ length: Math.max(9, Math.ceil((Math.max(...item.contents.map((c) => c.slot), 0) + 1) / 9) * 9) }, (_, i) => {
+            const c = item.contents!.find((x) => x.slot === i)
+            return (
+              <span key={i} className="tc">
+                {c && <ItemIcon id={c.id} size={22} />}
+                {c && c.count > 1 && <i>{c.count}</i>}
+              </span>
+            )
+          }).slice(0, 27)}
         </div>
       )}
       {item.unbreakable && <div className="blue">Неразрушимый</div>}

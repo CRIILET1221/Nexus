@@ -7,6 +7,8 @@ import * as panel from './panel'
 import { ping } from './ping'
 import { profiles, servers } from './store'
 import * as textures from './textures'
+import * as localfs from './localfs'
+import * as modrinth from './modrinth'
 
 textures.registerTextureScheme()
 
@@ -57,6 +59,8 @@ function handle(channel: string, fn: (...args: any[]) => unknown) {
 }
 
 function registerIpc() {
+  handle('app:version', () => app.getVersion())
+
   // Профили
   handle('profiles:list', () => profiles.list())
   handle('profiles:save', (input) => profiles.save(input))
@@ -103,6 +107,7 @@ function registerIpc() {
   // Консоль через панель хостинга
   handle('panel:servers', (url, key) => panel.listServers(url, key))
   handle('panel:normalize', (url) => panel.normalizePanelUrl(url))
+  handle('panel:discover', (url, key) => panel.discover(url, key))
   handle('panel:open', (profileId) => panel.openConsole(profileId))
   handle('panel:command', (id, cmd) => panel.sendCommand(id, cmd))
   handle('panel:power', (id, signal) => panel.setPower(id, signal))
@@ -156,6 +161,32 @@ function registerIpc() {
       })
     )
   })
+
+  // Файлы локальных серверов
+  handle('lfs:list', (id, dir) => localfs.list(id, dir))
+  handle('lfs:mkdir', (id, p) => localfs.mkdir(id, p))
+  handle('lfs:rename', (id, a, b) => localfs.rename(id, a, b))
+  handle('lfs:remove', (id, paths) => localfs.remove(id, paths))
+  handle('lfs:readText', (id, p) => localfs.readText(id, p))
+  handle('lfs:writeText', (id, p, c) => localfs.writeText(id, p, c))
+  handle('lfs:upload', (id, locals, dir) => localfs.upload(id, locals, dir))
+  handle('lfs:download', (id, paths, dest) => localfs.download(id, paths, dest))
+  handle('lfs:decompress', (id, dir, name) => localfs.decompress(id, dir, name))
+  handle('lfs:compress', (id, dir, names) => localfs.compress(id, dir, names))
+  handle('lfs:pull', (id, dir, url, name) => localfs.pull(id, dir, url, name))
+  handle('lfs:reveal', (id, p) => localfs.reveal(id, p))
+  handle('lfs:hash', (id, paths) => localfs.hash(id, paths))
+  handle('sftp:hash', (id, paths) => ssh.hashFiles(id, paths))
+
+  // Каталог плагинов и модов (Modrinth)
+  handle('modrinth:search', (opts) => modrinth.search(opts))
+  handle('modrinth:versions', (id, loaders, gv) => modrinth.versions(id, loaders, gv))
+  handle('modrinth:version', (id) => modrinth.version(id))
+  handle('modrinth:projects', (ids) => modrinth.projects(ids))
+  handle('modrinth:identify', (hashes) => modrinth.identify(hashes))
+  handle('modrinth:updates', (hashes, loaders, gv) => modrinth.updates(hashes, loaders, gv))
+  handle('modrinth:downloadTemp', (file) => modrinth.downloadTemp(file))
+  handle('modrinth:cleanupTemp', (p) => modrinth.cleanupTemp(p))
 
   // Иконки предметов
   handle('textures:status', () => textures.status())

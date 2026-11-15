@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import {
   ArrowUp, CheckCircle2, Copy, Download, Edit3, File, FileArchive, FileCog, FileImage, FilePlus, FileText,
-  Folder, FolderPlus, FolderUp, Home, Link2, Package, PackageOpen, RefreshCw, ScrollText, SquareTerminal, Trash2, Upload, XCircle
+  Folder, FolderOpen, FolderPlus, FolderUp, Home, Link2, Package, PackageOpen, RefreshCw, ScrollText, SquareTerminal, Trash2, Upload, XCircle
 } from 'lucide-react'
-import type { RemoteEntry, SessionInfo, TransferInfo } from '@shared/types'
+import type { RemoteEntry, TransferInfo } from '@shared/types'
+import type { FsBackend } from '../fsBackend'
 import { api } from '../api'
 import { ContextMenu, PromptModal, useAction, useToast, type MenuItem } from '../components/ui'
 import { EditorModal } from '../components/Editor'
@@ -25,12 +26,16 @@ function FileIcon({ e }: { e: RemoteEntry }) {
 
 const ARCHIVE_RE = /\.(zip|tar|tar\.gz|tgz|gz|tar\.bz2|tbz2|tar\.xz|txz|rar|7z)$/i
 
-export function FileManager(props: { session: SessionInfo; panelProfileId: string | null; active: boolean; onOpenConsole: () => void }) {
-  const panelPid = props.panelProfileId
-  const sid = props.session.id
+export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConsole?: () => void }) {
+  const fsb = props.fs
+  const arc = fsb.archive
+  const sid = fsb.key
+  const home = fsb.home
+  // права доступа имеют смысл только на Linux-сервере
+  const showMode = !fsb.reveal
   const toast = useToast()
   const run = useAction()
-  const [path, setPath] = useState(props.session.homePath)
+  const [path, setPath] = useState(home)
   const [entries, setEntries] = useState<RemoteEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -51,7 +56,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
       setLoading(true)
       setError(null)
       try {
-        const list = await api.sftp.list(sid, dir)
+        const list = await fsb.list(dir)
         setEntries(list)
         setPath(dir)
         if (!keepSelection) setSelected(new Set())
@@ -63,12 +68,12 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sid]
+    [fsb]
   )
 
   useEffect(() => {
-    load(props.session.homePath)
-  }, [load, props.session.homePath])
+    load(home)
+  }, [load, home])
 
   const pathRef = useRef(path)
   pathRef.current = path
@@ -108,7 +113,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
 
   const uploadPaths = async (locals: string[], dir = path) => {
     if (!locals.length) return
-    await run(() => api.sftp.upload(sid, locals, dir))
+    await run(() => fsb.upload(locals, dir))
   }
 
   const pickUpload = async (directories: boolean) => {
@@ -119,7 +124,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
   const download = async (list: RemoteEntry[]) => {
     if (!list.length) return
     const [dir] = await api.dialog.open({ directories: true, title: 'Куда сохранить' })
-    if (dir) await run(() => api.sftp.download(sid, list.map((e) => e.path), dir))
+    if (dir) await run(() => fsb.download(list.map((e) => e.path), dir))
   }
 
   const remove = async (list: RemoteEntry[]) => {
@@ -127,14 +132,16 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
     const ok = await api.dialog.confirm({
       title: 'Удаление',
       message: list.length === 1 ? `Удалить «${list[0].name}»?` : `Удалить выбранные объекты (${list.length})?`,
-      detail: list.some((e) => e.isDir)
-        ? 'Папки будут удалены вместе со всем содержимым. Это действие нельзя отменить.'
-        : 'Это действие нельзя отменить.',
+      detail: fsb.trash
+        ? 'Файлы попадут в корзину Windows — их можно будет восстановить.'
+        : list.some((e) => e.isDir)
+          ? 'Папки будут удалены вместе со всем содержимым. Это действие нельзя отменить.'
+          : 'Это действие нельзя отменить.',
       ok: 'Удалить',
       danger: true
     })
     if (!ok) return
-    await run(() => api.sftp.remove(sid, list.map((e) => e.path)), 'Удалено')
+    await run(() => fsb.remove(list.map((e) => e.path)), 'Удалено')
     load(path)
   }
 
@@ -144,29 +151,29 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
   const [pullOpen, setPullOpen] = useState(false)
 
   const decompress = async (e: RemoteEntry) => {
-    if (!panelPid) return
+    if (!arc) return
     setArchiving(`Распаковка ${e.name}…`)
-    await run(() => api.panel.request(panelPid, 'POST', '/files/decompress', { root: path, file: e.name }), `Архив ${e.name} распакован`)
+    await run(() => arc.decompress(path, e.name), `Архив ${e.name} распакован`)
     setArchiving(null)
     load(path, true)
   }
 
   const compress = async (list: RemoteEntry[]) => {
-    if (!panelPid || !list.length) return
+    if (!arc || !list.length) return
     setArchiving(`Архивация (${list.length})…`)
     const res = await run(
-      () => api.panel.request<any>(panelPid, 'POST', '/files/compress', { root: path, files: list.map((e) => e.name) }),
+      () => arc.compress(path, list.map((e) => e.name)),
       'Архив создан'
     )
     setArchiving(null)
     await load(path, true)
-    if (res?.attributes?.name) setSelected(new Set([joinRemote(path, res.attributes.name)]))
+    if (res) setSelected(new Set([joinRemote(path, res)]))
   }
 
   const pull = async (url: string) => {
-    if (!panelPid) return
+    if (!arc) return
     const ok = await run(
-      () => api.panel.request(panelPid, 'POST', '/files/pull', { url: url.trim(), directory: path }).then(() => true),
+      () => arc.pull(url.trim(), path).then(() => true),
       'Скачивание запущено на сервере — файл появится через некоторое время'
     )
     if (ok) {
@@ -219,12 +226,13 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
         { label: e.isDir ? 'Открыть' : 'Редактировать', icon: e.isDir ? <Folder size={15} /> : <Edit3 size={15} />, kbd: 'Enter', onClick: () => open(e), hidden: !single },
         { label: list.length > 1 ? `Скачать (${list.length})` : 'Скачать', icon: <Download size={15} />, onClick: () => download(list) },
         { label: 'Загрузить сюда', icon: <Upload size={15} />, onClick: () => api.dialog.open({ multi: true }).then((f) => uploadPaths(f, e.path)), hidden: !(single && e.isDir) },
-        { separator: true, hidden: !panelPid },
-        { label: 'Распаковать здесь', icon: <PackageOpen size={15} />, onClick: () => decompress(e), hidden: !(panelPid && single && !e.isDir && ARCHIVE_RE.test(e.name)) },
-        { label: list.length > 1 ? `Запаковать в архив (${list.length})` : 'Запаковать в архив', icon: <FileArchive size={15} />, onClick: () => compress(list), hidden: !panelPid },
+        { separator: true, hidden: !arc },
+        { label: 'Распаковать здесь', icon: <PackageOpen size={15} />, onClick: () => decompress(e), hidden: !(arc && single && !e.isDir && ARCHIVE_RE.test(e.name)) },
+        { label: list.length > 1 ? `Запаковать в архив (${list.length})` : 'Запаковать в архив', icon: <FileArchive size={15} />, onClick: () => compress(list), hidden: !arc },
         { separator: true },
         { label: 'Переименовать', icon: <Edit3 size={15} />, kbd: 'F2', onClick: () => setPrompt({ kind: 'rename', entry: e }), hidden: !single },
         { label: 'Копировать путь', icon: <Copy size={15} />, onClick: () => copyPath(e), hidden: !single },
+        { label: 'Показать в проводнике', icon: <FolderOpen size={15} />, onClick: () => fsb.reveal?.(e.path), hidden: !(single && fsb.reveal) },
         { separator: true },
         { label: list.length > 1 ? `Удалить (${list.length})` : 'Удалить', icon: <Trash2 size={15} />, kbd: 'Del', danger: true, onClick: () => remove(list) }
       ]
@@ -243,7 +251,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
         { separator: true },
         { label: 'Новая папка', icon: <FolderPlus size={15} />, onClick: () => setPrompt({ kind: 'mkdir' }) },
         { label: 'Новый файл', icon: <FilePlus size={15} />, onClick: () => setPrompt({ kind: 'newfile' }) },
-        { label: 'Скачать на сервер по ссылке', icon: <Link2 size={15} />, onClick: () => setPullOpen(true), hidden: !panelPid },
+        { label: 'Скачать на сервер по ссылке', icon: <Link2 size={15} />, onClick: () => setPullOpen(true), hidden: !arc },
         { separator: true },
         { label: 'Обновить', icon: <RefreshCw size={15} />, kbd: 'F5', onClick: () => load(path, true) }
       ]
@@ -322,7 +330,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
         <button className="btn icon" title="Вверх (Backspace)" onClick={() => load(parentDir(path))} disabled={path === '/'}>
           <ArrowUp size={16} />
         </button>
-        <button className="btn icon" title="Домашняя папка" onClick={() => load(props.session.homePath)}>
+        <button className="btn icon" title="Домашняя папка" onClick={() => load(home)}>
           <Home size={16} />
         </button>
         <button className="btn icon" title="Обновить (F5)" onClick={() => load(path, true)}>
@@ -367,7 +375,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
         <button className="btn" onClick={() => download(selEntries)} disabled={!selEntries.length} title="Скачать выбранное">
           <Download size={16} />
         </button>
-        {panelPid && (
+        {arc && (
           <>
             {selEntries.length === 1 && !selEntries[0].isDir && ARCHIVE_RE.test(selEntries[0].name) ? (
               <button className="btn" onClick={() => decompress(selEntries[0])} disabled={!!archiving} title="Распаковать архив на сервере">
@@ -386,9 +394,11 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
         <button className="btn primary" onClick={() => pickUpload(false)}>
           <Upload size={16} /> Загрузить
         </button>
-        <button className="btn icon" title="Консоль" onClick={props.onOpenConsole}>
-          <SquareTerminal size={16} />
-        </button>
+        {props.onOpenConsole && (
+          <button className="btn icon" title="Консоль" onClick={props.onOpenConsole}>
+            <SquareTerminal size={16} />
+          </button>
+        )}
       </div>
 
       <div
@@ -405,7 +415,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
             <XCircle size={28} color="var(--danger)" />
             <h3>Не удалось открыть папку</h3>
             <div>{error}</div>
-            <button className="btn" onClick={() => load(props.session.homePath)}>
+            <button className="btn" onClick={() => load(home)}>
               Вернуться домой
             </button>
           </div>
@@ -415,7 +425,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
               <col />
               <col style={{ width: 110 }} />
               <col style={{ width: 160 }} />
-              <col style={{ width: 110 }} />
+              {showMode && <col style={{ width: 110 }} />}
             </colgroup>
             <thead>
               <tr>
@@ -424,7 +434,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
                   Размер{arrow('size')}
                 </th>
                 <th onClick={() => sortBy('mtime')}>Изменён{arrow('mtime')}</th>
-                <th>Права</th>
+                {showMode && <th>Права</th>}
               </tr>
             </thead>
             <tbody>
@@ -438,7 +448,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
                   </td>
                   <td />
                   <td />
-                  <td />
+                  {showMode && <td />}
                 </tr>
               )}
               {sorted.map((e) => (
@@ -465,7 +475,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
                   </td>
                   <td className="num">{e.isDir ? '' : formatBytes(e.size)}</td>
                   <td className="muted">{formatDate(e.mtime)}</td>
-                  <td className="dim">{formatMode(e.mode)}</td>
+                  {showMode && <td className="dim">{formatMode(e.mode)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -546,7 +556,7 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
             <span className="spinner" style={{ width: 11, height: 11 }} /> {archiving}
           </span>
         ) : (
-          <span>{panelPid ? 'Архивы распаковываются прямо на сервере — ПКМ по файлу' : 'Перетащите файлы из проводника для загрузки'}</span>
+          <span>{arc ? arc.hint : 'Перетащите файлы из проводника для загрузки'}</span>
         )}
       </div>
 
@@ -567,9 +577,9 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
             }
             const target = joinRemote(path, name)
             const ok = await run(async () => {
-              if (prompt.kind === 'mkdir') await api.sftp.mkdir(sid, target)
-              else if (prompt.kind === 'newfile') await api.sftp.writeText(sid, target, '')
-              else await api.sftp.rename(sid, prompt.entry!.path, target)
+              if (prompt.kind === 'mkdir') await fsb.mkdir(target)
+              else if (prompt.kind === 'newfile') await fsb.writeText(target, '')
+              else await fsb.rename(prompt.entry!.path, target)
               return true
             })
             if (ok) {
@@ -596,8 +606,8 @@ export function FileManager(props: { session: SessionInfo; panelProfileId: strin
         <EditorModal
           title={editing.name}
           path={editing.path}
-          load={() => api.sftp.readText(sid, editing.path)}
-          save={(content) => api.sftp.writeText(sid, editing.path, content)}
+          load={() => fsb.readText(editing.path)}
+          save={(content) => fsb.writeText(editing.path, content)}
           onClose={() => {
             setEditing(null)
             load(path, true)
