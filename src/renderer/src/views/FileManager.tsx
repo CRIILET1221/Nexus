@@ -265,7 +265,8 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
     if (!props.active || prompt || editing) return
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement
-      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
+      // ввод в видимое поле — не наши клавиши; скрытая вкладка консоли фокус не перехватывает
+      if ((t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && getComputedStyle(t).visibility !== 'hidden') return
       if (e.key === 'F5') {
         e.preventDefault()
         load(path, true)
@@ -273,7 +274,8 @@ export function FileManager(props: { fs: FsBackend; active: boolean; onOpenConso
       else if (e.key === 'F2' && selEntries.length === 1) setPrompt({ kind: 'rename', entry: selEntries[0] })
       else if (e.key === 'Enter' && selEntries.length === 1) open(selEntries[0])
       else if (e.key === 'Backspace') load(parentDir(path))
-      else if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+      // e.code — физическая клавиша: работает и при русской/украинской раскладке («ф»)
+      else if (e.ctrlKey && e.code === 'KeyA') {
         e.preventDefault()
         setSelected(new Set(entries.map((x) => x.path)))
       }

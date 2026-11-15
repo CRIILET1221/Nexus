@@ -88,7 +88,8 @@ export function XTerm(props: {
     // Копирование/вставка: Ctrl+C при выделении, Ctrl+Shift+C/V, Ctrl+V
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true
-      const key = e.key.toLowerCase()
+      // e.code — физическая клавиша, чтобы Ctrl+C/V работали и при русской раскладке
+      const key = e.code === 'KeyC' ? 'c' : e.code === 'KeyV' ? 'v' : e.key.toLowerCase()
       if (e.ctrlKey && key === 'c' && (e.shiftKey || term.hasSelection())) {
         navigator.clipboard.writeText(term.getSelection())
         term.clearSelection()
