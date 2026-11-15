@@ -3,6 +3,7 @@
   "productName": "Nexus",
   "version": "0.5.1",
   "description": "SFTP/SSH клиент и панель локальных серверов Minecraft",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "main": "./out/main/index.js",
   "private": true,
   "scripts": {
@@ -13,11 +14,11 @@
     "i18n:check": "node scripts/i18n-check.cjs",
     "dist": "electron-vite build && electron-builder --win"
   },
-  "author": "Nexus",
+  "author": "CRIILET1221",
   "build": {
     "appId": "app.nexus.client",
     "productName": "Nexus",
-    "copyright": "Nexus",
+    "copyright": "Copyright © 2026 CRIILET1221",
     "directories": {
       "output": "release",
       "buildResources": "build"

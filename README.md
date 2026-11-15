@@ -53,3 +53,14 @@ src/shared/      — shared types
 App data is stored in `%APPDATA%\nexus\nexus-data.json`.
 
 The console font is [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) (MIT), see `src/renderer/src/assets/fonts/LICENSE-clacon.txt`.
+
+## License
+
+Nexus is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE.md).
+
+- ✅ You may download, use, study and modify it for yourself, for hobby projects, for your own Minecraft server with friends, and share it for free — keep the license and the `Required Notice` line.
+- ❌ You may not use it for commercial purposes: selling it or modified versions, charging for access, or including it in a paid product or hosting service.
+
+Commercial licenses are available from the author — open an issue on [GitHub](https://github.com/CRIILET1221/Nexus) to get in touch.
+
+Copyright © 2026 CRIILET1221. Third-party components (Electron, React, xterm.js, Monaco, ssh2, the Classic Console Neue font and others) remain under their own licenses.

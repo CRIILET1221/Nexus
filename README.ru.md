@@ -49,3 +49,14 @@ src/shared/      — общие типы
 Данные приложения хранятся в `%APPDATA%\nexus\nexus-data.json`.
 
 Шрифт консоли — [Classic Console Neue](https://webdraft.hu/fonts/classic-console/) (MIT), см. `src/renderer/src/assets/fonts/LICENSE-clacon.txt`.
+
+## Лицензия
+
+Код Nexus открыт по лицензии [PolyForm Noncommercial 1.0.0](LICENSE.md).
+
+- ✅ Можно скачивать, пользоваться, изучать и менять под себя, для хобби, для своего сервера Minecraft с друзьями, а также бесплатно делиться — сохраняя лицензию и строку `Required Notice`.
+- ❌ Нельзя использовать в коммерческих целях: продавать программу или её изменённые версии, брать деньги за доступ, включать в платный продукт или услугу хостинга.
+
+Коммерческую лицензию можно получить у автора — напишите в issues на [GitHub](https://github.com/CRIILET1221/Nexus).
+
+Copyright © 2026 CRIILET1221. Сторонние компоненты (Electron, React, xterm.js, Monaco, ssh2, шрифт Classic Console Neue и другие) распространяются по своим лицензиям.
